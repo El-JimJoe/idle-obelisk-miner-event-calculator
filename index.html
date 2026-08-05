@@ -145,6 +145,7 @@
   .readout{
     display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
     border:1px solid var(--seam);background:var(--basalt-2);
+    margin-top:clamp(18px,2.4vw,28px);
   }
   .cell{padding:13px 14px;border-right:1px solid var(--seam);border-bottom:1px solid var(--seam)}
   .cell:last-child{border-right:none}
@@ -204,6 +205,30 @@
   .stamp.go{color:var(--malachite)}
   .gauge-note{margin-top:14px;font-size:13px;color:var(--slate);max-width:66ch}
   .gauge-note b{color:var(--limestone);font-weight:600}
+  /* ---------- Kaffee-Hinweis in der Seitenleiste ---------- */
+  .coffee.rail-coffee{
+    display:flex;
+    align-items:center;
+    flex-wrap:nowrap;
+    gap:7px;
+    margin:clamp(18px,2.4vw,28px) 0;
+    padding:9px 10px;
+    border:1px solid var(--seam);
+    background:rgba(36,61,71,.42);
+  }
+  .coffee.rail-coffee span{
+    min-width:0;
+    white-space:nowrap;
+    font-size:10.5px;
+    color:var(--slate);
+  }
+  .coffee.rail-coffee .coffeebtn{
+    flex:none;
+    margin-left:auto;
+    padding:6px 9px;
+    font-size:10px;
+    letter-spacing:.05em;
+  }
   .wavewarn{
     margin:0 0 12px;padding:9px 12px;
     border:1px solid var(--copper);border-left-width:3px;
@@ -491,7 +516,12 @@
       </div>
     </section>
 
-    <section class="pane">
+        <div class="coffee rail-coffee">
+      <span>Does this calculator help you?</span>
+      <a class="coffeebtn" href="https://www.paypal.me/HeinrichsSven" target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
+    </div>
+
+<section class="pane">
       <span class="eyebrow" data-i18n="gemHead">Gem-Upgrades</span>
       <div class="field step">
         <label for="gemHP" data-i18n="gemHP">+10 % Max-HP · Level <span class="hint" data-i18n="gemHPHint">Cap 5 + 1 je Prestige-Rang</span></label>
@@ -603,10 +633,6 @@
 
 <footer>
   <p data-i18n="footer">Modell nach den Formeln aus <a href="https://shminer.miraheze.org/wiki/Guides/Events_Guide">Guides/Events Guide</a> und den Kosten aus <a href="https://shminer.miraheze.org/wiki/Events/Costs">Events/Costs</a>. Max-Welle und Einkommens-Scores sind Schätzungen: das Modell nimmt an, dass du ohne Heilung durchläufst.</p>
-  <div class="coffee">
-    <span data-i18n="coffee">Hilft dir der Rechner? Spendier mir einen Kaffee:</span>
-    <a class="coffeebtn" href="https://www.paypal.me/HeinrichsSven" target="_blank" rel="noopener noreferrer" data-i18n="coffeeBtn">☕ Buy me a coffee</a>
-  </div>
 </footer>
 
 <script>
