@@ -641,7 +641,7 @@
    data-i18n im HTML, dynamische holen sich ihren Text ueber T(key).
    Upgrade-Namen kommen aus UPS (de) bzw. UPS_EN (en) ueber upName().        */
 let LANG = (localStorage.getItem('obelisk-lang')
-         || (navigator.language||'de').slice(0,2).toLowerCase()) === 'en' ? 'en' : 'de';
+         || (navigator.language||'en').slice(0,2).toLowerCase()) === 'de' ? 'de' : 'en';
 const STR = {
   de:{
     eyebrow:'Idle Obelisk Miner · Event-Upgrades · v2.8.2',
