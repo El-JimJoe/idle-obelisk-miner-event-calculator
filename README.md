@@ -1,47 +1,40 @@
-# Obelisk Event-Upgrade-Rechner
+# Obelisk Event Upgrade Calculator
 
-Kaufempfehlungen für das Summer Event in **Idle Obelisk Miner**:
-Rangliste pro Tier, Max-Wellen-Schätzung, Prestige-Vorschau.
+Purchase recommendations for the Events in **Idle Obelisk Miner**:
+rankings for each tier, estimated maximum wave, and prestige preview.
 
-**→ [Rechner öffnen](https://El-JimJoe.github.io/idle-obelisk-miner-event-calculator/)**
+**→ [Open the calculator](https://El-JimJoe.github.io/idle-obelisk-miner-event-calculator/)**
 
-## Installieren
+## Your progress
 
-Die Seite ist eine PWA — sie lässt sich wie eine App auf den
-Homescreen legen und läuft danach offline.
+Your progress is stored **on your device** in the browser storage.
+No accounts, servers, or data transmission are required.
 
-- **Android (Chrome):** Menü ⋮ → *App installieren*
-- **iOS (Safari):** Teilen-Symbol → *Zum Home-Bildschirm*
-- **Desktop (Chrome/Edge):** Installations-Symbol in der Adressleiste
+To transfer your progress to another device, select **Copy code**, paste it
+under *Code to copy or paste*, and select **Apply code**.
+You can also select **Save state** to create a JSON backup file.
 
-## Dein Fortschritt
+## How to use it
 
-Der Stand wird **auf deinem Gerät** gespeichert (Browser-Speicher).
-Keine Konten, keine Server, keine Datenübertragung.
+- **Base values** on the left: prestige rank and the weighting between
+  survival and pace
+- **Purchased levels**: your current level for each upgrade
+- **Purchase recommendations** for each tier: the number is a relative score;
+  100 means the best purchase in that tier. Green represents survival,
+  yellow represents pace
+- **Target wave** on the Damage Breakpoint card, optionally set
+  automatically to maximum wave plus an adjustable gap
 
-Zum Übertragen auf ein anderes Gerät: **Code kopieren** und dort
-unter *Code zum Kopieren oder Einfügen* einsetzen → **Code einlesen**.
-Oder **Stand speichern** für eine JSON-Datei als Backup.
+Switch between German and English with the DE/EN button in the top-right
+corner.
 
-## Bedienung
+## Run locally
 
-- **Grundwerte** links: Prestige-Rang und Gewichtung zwischen
-  Überleben und Tempo
-- **Gekaufte Level**: dein aktueller Stand pro Upgrade
-- **Kaufempfehlungen** je Tier: die Zahl ist ein relativer Score,
-  100 = bester Kauf in diesem Tier. Grün = Überleben, Gelb = Tempo
-- **Ziel-Welle** auf der Breakpoint-Karte, optional automatisch
-  als Max-Welle + Abstand
+You can also open `index.html` directly by double-clicking it.
+Without a server, only PWA installation and the offline cache are unavailable.
 
-Sprache über den DE/EN-Schalter oben rechts.
+## Credits
 
-## Lokal ausführen
+Game values are based on the [SHMiner Wiki](https://shminer.miraheze.org).
 
-Die `index.html` funktioniert auch als einzelne Datei per Doppelklick.
-Ohne Server entfallen nur PWA-Installation und Offline-Cache.
-
-## Danke
-
-Spielwerte aus dem [SHMiner-Wiki](https://shminer.miraheze.org).
-
-Gefällt der Rechner? [Buy me a coffee](https://paypal.me/HeinrichsSven)
+Does this calculator help you? [Buy me a coffee](https://paypal.me/HeinrichsSven)
