@@ -3,7 +3,7 @@
 Kaufempfehlungen für das Summer Event in **Idle Obelisk Miner**:
 Rangliste pro Tier, Max-Wellen-Schätzung, Prestige-Vorschau.
 
-**→ [Rechner öffnen](https://el-jimjoe.github.io/idle-obelisk-miner-event-calculator/)**
+**→ [Rechner öffnen](https://El-JimJoe.github.io/idle-obelisk-miner-event-calculator/)**
 
 ## Installieren
 
