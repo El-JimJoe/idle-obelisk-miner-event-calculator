@@ -511,8 +511,8 @@
       <input type="hidden" id="W" value="5">
       <div class="slider">
         <label for="tempo" data-i18n="tempo">Gewichtung <span class="hint" data-i18n="tempoHint">Wie stark zaehlt Tempo gegen Ueberleben?</span></label>
-        <input type="range" id="tempo" min="0" max="100" step="5" value="50">
-        <div class="slider-ends"><span data-i18n="tempoLeft">nur Ueberleben</span><span id="tempoVal">50 / 50</span><span data-i18n="tempoRight">nur Tempo</span></div>
+        <input type="range" id="tempo" min="0" max="100" step="5" value="65">
+        <div class="slider-ends"><span data-i18n="tempoLeft">nur Ueberleben</span><span id="tempoVal">35 / 65</span><span data-i18n="tempoRight">nur Tempo</span></div>
       </div>
     </section>
 
@@ -641,7 +641,7 @@
    data-i18n im HTML, dynamische holen sich ihren Text ueber T(key).
    Upgrade-Namen kommen aus UPS (de) bzw. UPS_EN (en) ueber upName().        */
 let LANG = (localStorage.getItem('obelisk-lang')
-         || (navigator.language||'en').slice(0,2).toLowerCase()) === 'de' ? 'de' : 'en';
+         || (navigator.language||'de').slice(0,2).toLowerCase()) === 'en' ? 'en' : 'de';
 const STR = {
   de:{
     eyebrow:'Idle Obelisk Miner · Event-Upgrades · v2.8.2',
