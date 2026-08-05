@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event-Upgrade-Assay — Idle Obelisk Miner</title>
+<!-- PWA: installierbar auf Android/iOS. manifest+sw liegen daneben.
+     Fehlen sie (z.B. einzelne Datei per file://), stoert das nichts. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d161b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Obelisk-Rechner">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;900&family=Space+Mono:wght@400;700&family=Public+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --basalt:#16242B;
+    --basalt-2:#1D3039;
+    --basalt-3:#243D47;
+    --seam:#33525E;
+    --limestone:#EDE7D9;
+    --slate:#8AA0A9;
+    --malachite:#45C39A;
+    --copper:#D2703A;
+    --sulphur:#E8C34A;
+    --pane-pad:clamp(14px,2vw,22px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--basalt);
+    color:var(--limestone);
+    font-family:'Public Sans',system-ui,sans-serif;
+    font-size:15px;line-height:1.5;
+    background-image:
+      repeating-linear-gradient(90deg,rgba(51,82,94,.16) 0 1px,transparent 1px 4px);
+  }
+  .eyebrow{
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--slate);
+  }
+  .num{font-family:'Space Mono',monospace;font-variant-numeric:tabular-nums}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    border-bottom:2px solid var(--seam);
+    padding:clamp(20px,4vw,40px) var(--pane-pad) clamp(16px,3vw,26px);
+    max-width:1380px;margin:0 auto;
+  }
+  .masthead h1{
+    font-family:'Big Shoulders Display',sans-serif;
+    font-weight:900;text-transform:uppercase;
+    font-size:clamp(38px,8vw,86px);line-height:.86;
+    letter-spacing:.005em;margin:.18em 0 .3em;
+  }
+  .masthead h1 em{font-style:normal;color:var(--malachite)}
+  .thesis{max-width:60ch;color:var(--slate);font-size:clamp(14px,1.4vw,17px)}
+  .thesis b{color:var(--limestone);font-weight:600}
+
+  /* ---------- layout ---------- */
+  .shell{
+    max-width:1380px;margin:0 auto;padding:0 var(--pane-pad) clamp(18px,2.4vw,28px);
+    display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);
+    gap:clamp(18px,2.4vw,34px);align-items:start;
+  }
+  @media (max-width:940px){.shell{grid-template-columns:minmax(0,1fr)}}
+
+  .rail{position:sticky;top:16px}
+  @media (max-width:940px){.rail{position:static}}
+
+  .pane{
+    background:var(--basalt-2);
+    border:1px solid var(--seam);
+    padding:var(--pane-pad);
+    margin-top:clamp(18px,2.4vw,28px);
+  }
+  .pane > .eyebrow{display:block;margin-bottom:14px}
+
+  /* ---------- inputs ---------- */
+  .field{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
+  .field label{font-size:13.5px;color:var(--limestone)}
+  .field .hint{display:block;font-size:11.5px;color:var(--slate);line-height:1.35}
+  input[type=number]{
+    width:74px;flex:none;
+    background:var(--basalt);border:1px solid var(--seam);
+    color:var(--sulphur);font-family:'Space Mono',monospace;font-size:14px;
+    padding:6px 8px;text-align:right;
+  }
+  input[type=number]:focus-visible,
+  select:focus-visible,
+  button:focus-visible,
+  summary:focus-visible{outline:2px solid var(--malachite);outline-offset:2px}
+  input[type=checkbox]{accent-color:var(--malachite);width:17px;height:17px}
+  .cap{font-size:11.5px;color:var(--slate);font-family:'Space Mono',monospace;text-align:left}
+  /* ---------- Upgrade-Zeilen: Label | − | Feld | + | Cap ----------
+     Ein Grid statt Flexbox, damit alle Eingabefelder aller Tiers und der
+     Gem-Sektion exakt in derselben Spalte stehen.                        */
+  .field.step{
+    display:grid;
+    grid-template-columns:1fr 22px 46px 22px 34px;
+    align-items:center;gap:6px;padding:5px 0;
+  }
+  .field.step > label{min-width:0}
+  .field.step input[type=number]{
+    width:100%;text-align:center;padding:6px 2px;
+    -moz-appearance:textfield;appearance:textfield;
+  }
+  .field.step input[type=number]::-webkit-outer-spin-button,
+  .field.step input[type=number]::-webkit-inner-spin-button{
+    -webkit-appearance:none;margin:0;         /* Pfeile weg, wir nutzen − / + */
+  }
+  .stp{
+    font-family:'Space Mono',monospace;cursor:pointer;
+    background:var(--basalt);border:1px solid var(--seam);color:var(--limestone);
+    width:22px;height:24px;display:grid;place-items:center;font-size:13px;padding:0;
+    transition:background .12s,border-color .12s,color .12s;
+  }
+  .stp.up{font-weight:700}
+  .stp.up:hover{background:var(--malachite);border-color:var(--malachite);color:var(--basalt)}
+  .stp.dn{color:var(--slate);font-size:14px}
+  .stp.dn:hover{border-color:var(--copper);color:var(--copper)}
+  .stp[disabled]{opacity:.28;cursor:not-allowed}
+  .stp[disabled]:hover{background:var(--basalt);border-color:var(--seam);color:var(--slate)}
+  .field.step .cap{min-width:34px;text-align:left}
+  .locked{opacity:.42}
+  .locked input{color:var(--slate)}
+
+  details.grp{border-top:1px solid var(--seam);margin-top:12px;padding-top:10px}
+  details.grp summary{
+    cursor:pointer;list-style:none;
+    font-family:'Space Mono',monospace;font-size:11.5px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--slate);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  details.grp summary::-webkit-details-marker{display:none}
+  details.grp summary::after{content:'+';color:var(--malachite);font-size:15px}
+  details.grp[open] summary::after{content:'–'}
+  details.grp[open] summary{color:var(--limestone);margin-bottom:8px}
+
+  /* ---------- readout ---------- */
+  .readout{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
+    border:1px solid var(--seam);background:var(--basalt-2);
+  }
+  .cell{padding:13px 14px;border-right:1px solid var(--seam);border-bottom:1px solid var(--seam)}
+  .cell:last-child{border-right:none}
+  .cell .k{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--slate)}
+  .cell .v{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:31px;line-height:1.08;letter-spacing:.01em}
+  .cell .v small{font-size:14px;color:var(--slate);font-weight:500}
+
+  /* ---------- SIGNATURE: damage breakpoint core log ---------- */
+  .gauge{border:1px solid var(--seam);background:var(--basalt-2);padding:var(--pane-pad);margin-top:clamp(18px,2.4vw,28px)}
+  .gauge-head{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .gauge-head h2{font-family:'Big Shoulders Display',sans-serif;font-weight:700;text-transform:uppercase;font-size:26px;letter-spacing:.02em}
+
+  /* Ziel-Welle direkt am Breakpoint */
+  .wavectl{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .wavectl label{margin-right:3px}
+  .wavectl input[type=number]{width:66px;font-size:15px;color:var(--sulphur);text-align:center}
+  .wbtn{
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;
+    background:var(--basalt);border:1px solid var(--seam);color:var(--limestone);
+    padding:5px 7px;line-height:1;transition:background .12s,border-color .12s,color .12s;
+  }
+  .wbtn:hover{background:var(--malachite);border-color:var(--malachite);color:var(--basalt)}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;align-items:center}
+  .chiplbl{
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--slate);margin-right:4px;
+  }
+  .chip{
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.07em;cursor:pointer;
+    background:transparent;border:1px solid var(--seam);color:var(--slate);padding:4px 8px;
+    transition:border-color .12s,color .12s,background .12s;
+  }
+  .chip:hover{border-color:var(--limestone);color:var(--limestone)}
+  .chip[aria-pressed="true"]{border-color:var(--malachite);color:var(--basalt);background:var(--malachite);font-weight:700}
+  .gauge-sub{display:block;margin-bottom:12px}
+
+  .bar{position:relative;height:56px;background:var(--basalt);border:1px solid var(--seam)}
+  .bar-need{position:absolute;inset:0 auto 0 0;background:var(--malachite);opacity:.9;transition:width .45s cubic-bezier(.2,.7,.2,1)}
+  .bar-over{
+    position:absolute;top:0;bottom:0;
+    background-image:repeating-linear-gradient(135deg,var(--copper) 0 6px,transparent 6px 12px);
+    border-left:2px solid var(--copper);
+    transition:width .45s cubic-bezier(.2,.7,.2,1),left .45s cubic-bezier(.2,.7,.2,1);
+  }
+  .bar-tick{position:absolute;top:-9px;bottom:-9px;width:2px;background:var(--limestone)}
+  .bar-tick span{
+    position:absolute;left:7px;top:-2px;white-space:nowrap;
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--limestone);
+  }
+  .stamp{
+    margin-top:16px;display:inline-block;
+    font-family:'Big Shoulders Display',sans-serif;font-weight:900;text-transform:uppercase;
+    font-size:clamp(19px,2.6vw,29px);line-height:1;letter-spacing:.03em;
+    padding:9px 15px;border:3px solid currentColor;transform:rotate(-1.4deg);
+  }
+  .stamp.stop{color:var(--copper)}
+  .stamp.go{color:var(--malachite)}
+  .gauge-note{margin-top:14px;font-size:13px;color:var(--slate);max-width:66ch}
+  .gauge-note b{color:var(--limestone);font-weight:600}
+  .wavewarn{
+    margin:0 0 12px;padding:9px 12px;
+    border:1px solid var(--copper);border-left-width:3px;
+    background:rgba(210,112,58,.10);color:var(--limestone);
+    font-size:13px;line-height:1.45;max-width:70ch;
+  }
+  .wavewarn b{color:var(--copper);font-weight:700}
+
+  /* ---------- tier results ---------- */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:clamp(18px,2.2vw,26px);margin-top:clamp(18px,2.4vw,28px)}
+  .tier{border:1px solid var(--seam);background:var(--basalt-2);display:flex;flex-direction:column}
+  .tier-head{padding:14px var(--pane-pad);border-bottom:1px solid var(--seam);display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .tier-head h3{font-family:'Big Shoulders Display',sans-serif;font-weight:900;text-transform:uppercase;font-size:23px;letter-spacing:.03em}
+  .tier-head .cur{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--slate);text-align:right}
+  .row{padding:11px var(--pane-pad);border-bottom:1px solid rgba(51,82,94,.5);display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;align-items:center}
+  .row:last-child{border-bottom:none}
+  .row.best{background:var(--basalt-3);border-left:3px solid var(--malachite);padding-left:calc(var(--pane-pad) - 3px)}
+  .row .nm{font-size:14px;font-weight:600}
+  .row .meta{font-family:'Space Mono',monospace;font-size:11.5px;color:var(--slate)}
+  .row .sc{font-family:'Big Shoulders Display',sans-serif;font-weight:700;font-size:24px;line-height:1;text-align:right;color:var(--sulphur)}
+  .row.best .sc{color:var(--malachite)}
+  .row .gain{font-family:'Space Mono',monospace;font-size:11.5px;color:var(--slate);text-align:right}
+  .track{grid-column:1/-1;height:3px;background:var(--basalt);margin-top:5px}
+  .track i{display:block;height:100%;background:var(--sulphur);transition:width .4s ease}
+  .row.best .track i{background:var(--malachite)}
+  .badge{
+    display:inline-block;margin-left:7px;vertical-align:1px;
+    font-family:'Space Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--copper);border:1px solid var(--copper);padding:1px 5px;
+  }
+  .badge.cap{color:var(--sulphur);border-color:var(--sulphur)}
+  .empty{padding:14px var(--pane-pad);color:var(--slate);font-size:13px}
+  .tier details{border-top:1px solid var(--seam)}
+  .tier details summary{
+    cursor:pointer;list-style:none;padding:10px var(--pane-pad);
+    font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--slate);
+  }
+  .tier details summary::-webkit-details-marker{display:none}
+  .tier details summary:hover{color:var(--limestone)}
+  /* Umschaltender Text: je nach [open] nur einer der beiden sichtbar */
+  .tier details summary .more-close{display:none}
+  .tier details[open] summary .more-open{display:none}
+  .tier details[open] summary .more-close{display:inline}
+
+  /* ---------- row actions ---------- */
+  .act{display:flex;gap:3px;align-items:center}
+  .plus,.minus{
+    font-family:'Space Mono',monospace;cursor:pointer;
+    background:var(--basalt);border:1px solid var(--seam);color:var(--limestone);
+    line-height:1;padding:0;transition:background .12s,border-color .12s,color .12s;
+    width:22px;height:22px;display:grid;place-items:center;font-size:13px;
+  }
+  .plus{font-weight:700}
+  .plus:hover{background:var(--malachite);border-color:var(--malachite);color:var(--basalt)}
+  .minus{color:var(--slate);font-size:12px}
+  .minus:hover{border-color:var(--copper);color:var(--copper)}
+  .minus[disabled]{opacity:.28;cursor:not-allowed}
+  .minus[disabled]:hover{border-color:var(--seam);color:var(--slate)}
+
+  .slider{padding:10px 0 2px;border-top:1px solid var(--seam);margin-top:10px}
+  .slider label{font-size:13.5px;display:block;margin-bottom:8px}
+  input[type=range]{width:100%;accent-color:var(--malachite);margin:2px 0}
+  .slider-ends{display:flex;justify-content:space-between;gap:6px;
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--slate)}
+  .slider-ends #tempoVal{color:var(--sulphur);font-weight:700}
+
+  .axes{display:flex;gap:9px;justify-content:flex-end;margin-top:3px;
+    font-family:'Space Mono',monospace;font-size:10.5px;white-space:nowrap}
+  .axes .s{color:var(--malachite)}
+  .axes .r{color:var(--sulphur)}
+  .axes .z{color:var(--slate);opacity:.5}
+
+  .unlockflag{
+    display:block;margin-top:3px;
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.03em;color:var(--malachite);
+  }
+  /* Cap-Buendel: macht sichtbar, dass der Score den Folgekauf mitrechnet,
+     waehrend als Preis der reine Cap-Kauf steht. Etwas mehr Kontrast als
+     .meta, weil die Zeile sonst bei kleiner Anzeige untergeht. */
+  .bundlenote{
+    display:block;margin-top:3px;line-height:1.45;
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.02em;
+    color:#93a7b2;
+  }
+  /* Schaden-Kette: eigener Zeilentyp */
+  .chainrow{background:rgba(210,112,58,.07)}
+  .chainrow.best{background:var(--basalt-3);border-left-color:var(--copper)}
+  .chainrow .sc{color:var(--copper)}
+  .chainparts{
+    display:block;margin-top:3px;
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.02em;color:var(--copper);
+  }
+  .badge.hit{color:var(--copper);border-color:var(--copper)}
+  /* Erster Einzelschritt der Kette - sofort bezahlbare Alternative */
+  .chainstep{
+    display:flex;align-items:center;gap:6px;margin-top:5px;
+    font-family:'Space Mono',monospace;font-size:10px;color:var(--slate);
+  }
+  .plus.mini{width:19px;height:19px;font-size:12px;flex:none}
+  .plus.wide{width:auto;padding:0 8px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .teaser{
+    padding:10px var(--pane-pad);border-top:1px dashed var(--seam);
+    font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--slate);
+  }
+  .teaser b{color:var(--sulphur);font-weight:700}
+
+  .pane-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+  .reset{
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+    cursor:pointer;background:transparent;border:1px solid var(--seam);color:var(--slate);padding:5px 9px;
+  }
+  .reset:hover{border-color:var(--copper);color:var(--copper)}
+  /* Vorschau: was bringt ein Prestige jetzt? */
+  .prestigeview{
+    margin-top:10px;padding:8px 10px;
+    border:1px solid var(--seam);border-left:3px solid var(--malachite);
+    background:rgba(69,195,154,.07);
+    font-size:12px;line-height:1.4;color:var(--slate);
+  }
+  .prestigeview b{color:var(--malachite);font-weight:700}
+  .prestigeview.wait{border-left-color:var(--slate);background:transparent}
+  /* Ziel deutlich ueber der Schaetzung: neutraler Hinweis, keine Warnung -
+     die Schaetzung ist konservativ, ein Run kann weiter tragen.          */
+  .prestigeview.risk{border-left-color:var(--sulphur);background:rgba(232,195,74,.06)}
+  .prestigeview.risk b{color:var(--sulphur)}
+  .riskhint{display:block;margin-top:4px;color:var(--slate);font-size:11.5px}
+  /* ---------- Stand sichern ---------- */
+  .savebar{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--seam)}
+  .savebar button{
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+    cursor:pointer;background:var(--basalt);border:1px solid var(--seam);color:var(--limestone);padding:6px 9px;
+    transition:background .12s,border-color .12s,color .12s;
+  }
+  .savebar button:hover{background:var(--malachite);border-color:var(--malachite);color:var(--basalt)}
+  .savebar .ghost{background:transparent;color:var(--slate)}
+  .savebar .ghost:hover{background:transparent;border-color:var(--copper);color:var(--copper)}
+  .codebox{margin-top:8px}
+  .codebox summary{
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--slate);cursor:pointer;padding:4px 0;list-style:none;
+  }
+  .codebox summary::before{content:'+ ';color:var(--malachite)}
+  .codebox[open] summary::before{content:'– '}
+  .codebox summary:hover{color:var(--limestone)}
+  .codebox textarea{
+    width:100%;min-height:74px;resize:vertical;margin-top:6px;
+    background:var(--basalt);border:1px solid var(--seam);color:var(--sulphur);
+    font-family:'Space Mono',monospace;font-size:10.5px;line-height:1.45;padding:8px;
+  }
+  /* Gleiches Design wie die Buttons in der Savebar */
+  .codebtn{
+    margin-top:6px;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+    cursor:pointer;background:var(--basalt);border:1px solid var(--seam);color:var(--limestone);padding:6px 9px;
+    transition:background .12s,border-color .12s,color .12s;
+  }
+  .codebtn:hover{background:var(--malachite);border-color:var(--malachite);color:var(--basalt)}
+  .savenote{
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.05em;color:var(--malachite);
+    margin-top:6px;min-height:13px;
+  }
+  .savenote.warn{color:var(--copper)}
+  /* Auto-Ziel-Welle: sitzt unter dem Wellen-Stepper der Breakpoint-Karte,
+     rechtsbuendig wie die Stepper-Reihe darueber. */
+  .autow{
+    display:flex;align-items:center;justify-content:flex-end;gap:12px;
+    flex-wrap:wrap;margin:8px 0 2px;
+  }
+  .chk{display:flex;align-items:center;gap:7px;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.05em;color:var(--slate)}
+  .chk input{
+    appearance:none;width:14px;height:14px;flex:none;cursor:pointer;
+    border:1px solid var(--seam);background:var(--basalt);
+  }
+  .chk input:checked{background:var(--malachite);border-color:var(--malachite)}
+  .chk input:checked::after{
+    content:'';display:block;width:4px;height:8px;margin:1px auto 0;
+    border:solid var(--abyss);border-width:0 2px 2px 0;transform:rotate(45deg);
+  }
+  .autooff{display:flex;align-items:center;gap:4px}
+  .autooff.off{opacity:.35}
+  .autoval{
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--malachite);
+    min-width:26px;text-align:center;
+  }
+  .autooff.off .autoval{color:var(--slate)}
+  .autonote{
+    font-family:'Space Mono',monospace;font-size:10px;color:var(--slate);
+    margin-left:4px;white-space:nowrap;
+  }
+  /* Gesperrte Wellen-Eingabe, solange die Automatik laeuft */
+  #W2:disabled{opacity:.45;cursor:not-allowed}
+  .wbtn:disabled,.chip:disabled{opacity:.35;cursor:not-allowed}
+  /* Server-Sync-Leiste: Punkt zeigt den Zustand, Text die letzte Aktion */
+  .syncbar{
+    display:flex;align-items:center;gap:8px;margin-top:8px;
+    padding:7px 9px;border:1px solid var(--seam);background:var(--basalt);
+  }
+  .syncdot{width:8px;height:8px;border-radius:50%;background:var(--slate);flex:none}
+  .syncdot.ok{background:var(--malachite)}
+  .syncdot.busy{background:var(--sulphur)}
+  .syncdot.err{background:var(--copper)}
+  .synctext{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--slate);flex:1;line-height:1.35}
+  /* Reload-Knopf: gleiche Optik wie die Knoepfe in der Speicher-Leiste.
+     Vorher trug er nur class="ghost", das aber ausschliesslich unter
+     .savebar definiert ist - ausserhalb erbte er gar nichts und sah
+     wie ein nackter Browser-Button aus. */
+  .syncbar button{
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+    letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;
+    cursor:pointer;background:transparent;border:1px solid var(--seam);
+    color:var(--slate);padding:6px 9px;margin-left:auto;
+    transition:background .12s,border-color .12s,color .12s;
+  }
+  .syncbar button:hover{background:transparent;border-color:var(--copper);color:var(--copper)}
+
+  .hidden-row{display:none}
+  .lockreason{font-size:11px;color:var(--slate);font-family:'Space Mono',monospace}
+
+  /* ---------- footer ----------
+     Vorher: border-top PLUS margin-top - dadurch stand die Linie losgelöst
+     im Leerraum und der Abstand nach unten war groesser als alle anderen.
+     Jetzt traegt der Footer nur Innenabstand, die Linie sitzt direkt am Rand. */
+  footer{max-width:1380px;margin:0 auto;padding:clamp(18px,2.4vw,28px) var(--pane-pad) clamp(20px,2.6vw,30px);color:var(--slate);font-size:12.5px;border-top:1px solid var(--seam)}
+  footer a{color:var(--malachite)}
+  /* ---------- Sprachschalter + Kaffee ---------- */
+  .mast-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .langbtn{
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;
+    cursor:pointer;background:transparent;border:1px solid var(--seam);color:var(--slate);
+    padding:5px 11px;transition:background .12s,border-color .12s,color .12s;
+  }
+  .langbtn:hover{background:var(--malachite);border-color:var(--malachite);color:var(--basalt)}
+  .coffee{
+    margin-top:18px;padding-top:16px;border-top:1px solid var(--seam);
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+  }
+  .coffeebtn{
+    display:inline-block;text-decoration:none;
+    font-family:'Space Mono',monospace;font-size:11.5px;font-weight:700;letter-spacing:.08em;
+    color:var(--basalt)!important;background:var(--sulphur);border:1px solid var(--sulphur);
+    padding:8px 14px;transition:background .12s,color .12s;
+  }
+  .coffeebtn:hover{background:var(--copper);border-color:var(--copper);color:var(--limestone)!important}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+    .stamp{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="mast-top">
+    <span class="eyebrow" data-i18n="eyebrow">Idle Obelisk Miner · Event-Upgrades · v2.8.2</span>
+    <button class="langbtn" id="langBtn" type="button" title="Deutsch / English">EN</button>
+  </div>
+  <h1><span data-i18n="h1a">Was kaufe</span><br><span data-i18n="h1b">ich</span> <em data-i18n="h1c">jetzt</em><span data-i18n="h1d">?</span></h1>
+  <p class="thesis" data-i18n="thesis">Trage deine Level ein. Der Rechner bewertet jedes nächste Level nach <b>relativem Überlebensgewinn pro Event-Currency</b> und zeigt pro Tier den besten Kauf. Vier Tiers, vier Währungen, vier getrennte Ranglisten.</p>
+</header>
+
+<div class="shell">
+
+  <!-- ================= INPUT RAIL ================= -->
+  <aside class="rail">
+    <section class="pane" style="margin-top:clamp(18px,2.4vw,28px)">
+      <span class="eyebrow" data-i18n="baseHead">Grundwerte</span>
+      <div class="field step">
+        <label for="P" data-i18n="P">Prestige-Rang <span class="hint" data-i18n="PHint">Schaltet Upgrades frei</span></label>
+        <button class="stp dn" type="button" data-stepg="P" data-d="-1" aria-label="−">−</button>
+        <input type="number" id="P" value="0" min="0" max="60">
+        <button class="stp up" type="button" data-stepg="P" data-d="1" aria-label="+">+</button>
+        <span class="cap"></span>
+      </div>
+      <!-- Ziel-Welle wird bei der Breakpoint-Karte eingestellt (Feld W2).
+           #W bleibt als verstecktes Spiegelfeld bestehen, weil readCfg(),
+           snapshot() und CFGIDS es als Datenquelle nutzen - so bleibt die
+           Rechenlogik unveraendert.                                      -->
+      <input type="hidden" id="W" value="5">
+      <div class="slider">
+        <label for="tempo" data-i18n="tempo">Gewichtung <span class="hint" data-i18n="tempoHint">Wie stark zaehlt Tempo gegen Ueberleben?</span></label>
+        <input type="range" id="tempo" min="0" max="100" step="5" value="50">
+        <div class="slider-ends"><span data-i18n="tempoLeft">nur Ueberleben</span><span id="tempoVal">50 / 50</span><span data-i18n="tempoRight">nur Tempo</span></div>
+      </div>
+    </section>
+
+    <section class="pane">
+      <span class="eyebrow" data-i18n="gemHead">Gem-Upgrades</span>
+      <div class="field step">
+        <label for="gemHP" data-i18n="gemHP">+10 % Max-HP · Level <span class="hint" data-i18n="gemHPHint">Cap 5 + 1 je Prestige-Rang</span></label>
+        <button class="stp dn" type="button" data-stepg="gemHP" data-d="-1" aria-label="−">−</button>
+        <input type="number" id="gemHP" value="0" min="0">
+        <button class="stp up" type="button" data-stepg="gemHP" data-d="1" aria-label="+">+</button>
+        <span class="cap" id="cap_gemHP"></span>
+      </div>
+      <div class="field step">
+        <label for="gemDMG" data-i18n="gemDMG">+10 % Schaden · Level <span class="hint" data-i18n="gemDMGHint">Cap 5 + 1 je Prestige-Rang</span></label>
+        <button class="stp dn" type="button" data-stepg="gemDMG" data-d="-1" aria-label="−">−</button>
+        <input type="number" id="gemDMG" value="0" min="0">
+        <button class="stp up" type="button" data-stepg="gemDMG" data-d="1" aria-label="+">+</button>
+        <span class="cap" id="cap_gemDMG"></span>
+      </div>
+      <div class="field step">
+        <label for="gemES" data-i18n="gemES">+125 % Event-Speed · Level <span class="hint" data-i18n="gemESHint">Cap 1, +1 je 5 Prestige-Ränge, max 3</span></label>
+        <button class="stp dn" type="button" data-stepg="gemES" data-d="-1" aria-label="−">−</button>
+        <input type="number" id="gemES" value="0" min="0">
+        <button class="stp up" type="button" data-stepg="gemES" data-d="1" aria-label="+">+</button>
+        <span class="cap" id="cap_gemES"></span>
+      </div>
+      <div class="field step">
+        <label for="gemCur" data-i18n="gemCur">2x Event-Währungen <span class="hint" data-i18n="gemCurHint">Verdoppelt alle Erträge · Cap 1</span></label>
+        <button class="stp dn" type="button" data-stepg="gemCur" data-d="-1" aria-label="−">−</button>
+        <input type="number" id="gemCur" value="0" min="0" max="1">
+        <button class="stp up" type="button" data-stepg="gemCur" data-d="1" aria-label="+">+</button>
+        <span class="cap" id="cap_gemCur">/ 1</span>
+      </div>
+    </section>
+
+    <section class="pane" id="levelPane">
+      <div class="pane-head">
+        <span class="eyebrow" data-i18n="lvlHead">Gekaufte Level</span>
+        <button class="reset" id="resetBtn" type="button" data-i18n="resetBtn">Prestigen · Run zurücksetzen</button>
+      </div>
+      <div class="prestigeview" id="prestigeView"></div>
+      <div class="savebar">
+        <button id="saveFile" type="button" data-i18n="saveFile">Stand speichern</button>
+        <button id="loadFile" type="button" data-i18n="loadFile">Stand laden</button>
+        <button id="copyCode" class="ghost" type="button" data-i18n="copyCode">Code kopieren</button>
+        <input type="file" id="fileIn" accept=".json,application/json" hidden>
+      </div>
+      <details class="codebox">
+        <summary data-i18n="codeSummary">Code zum Kopieren oder Einfügen</summary>
+        <textarea id="codeArea" spellcheck="false" aria-label="Gespeicherter Stand als Code"></textarea>
+        <button id="applyCode" type="button" class="codebtn" data-i18n="applyCode">Code einlesen</button>
+      </details>
+      <div class="savenote" id="saveNote"></div>
+      <!-- Server-Sync: erscheint nur, wenn die Seite von einem Sync-Server
+           ausgeliefert wird (http/https). Bei einer lokalen Datei bleibt
+           der Block ausgeblendet, damit offline nichts kaputt wirkt. -->
+      <div class="syncbar" id="syncBar" hidden>
+        <span class="syncdot" id="syncDot"></span>
+        <span class="synctext" id="syncText" data-i18n="syncIdle">Server-Sync aktiv</span>
+        <button id="syncNow" class="ghost" type="button" data-i18n="syncNow">Jetzt laden</button>
+      </div>
+      <div id="levelGroups"></div>
+    </section>
+  </aside>
+
+  <!-- ================= RESULTS ================= -->
+  <main>
+    <div class="readout" id="readout"></div>
+
+    <!-- SIGNATURE ELEMENT -->
+    <section class="gauge">
+      <div class="gauge-head">
+        <h2 data-i18n="bpHead">Schaden-Breakpoint</h2>
+        <div class="wavectl">
+          <label class="eyebrow" for="W2" data-i18n="targetWave">Ziel-Welle</label>
+          <button class="wbtn" type="button" data-dw="-5" aria-label="Ziel-Welle 5 zurück">−5</button>
+          <button class="wbtn" type="button" data-dw="-1" aria-label="Ziel-Welle 1 zurück">−1</button>
+          <input type="number" id="W2" min="1" max="250" value="5">
+          <button class="wbtn" type="button" data-dw="1" aria-label="Ziel-Welle 1 vor">+1</button>
+          <button class="wbtn" type="button" data-dw="5" aria-label="Ziel-Welle 5 vor">+5</button>
+        </div>
+      </div>
+      <!-- Auto-Ziel: haelt die Ziel-Welle immer Max-Welle + Abstand.
+           Ungefaehrlich, weil maxWave() die Ziel-Welle nicht liest -
+           es gibt also keine Rueckkopplung. -->
+      <div class="autow">
+        <label class="chk">
+          <input type="checkbox" id="autoW">
+          <span data-i18n="autoW">Ziel-Welle automatisch</span>
+        </label>
+        <span class="autooff" id="autoWOff">
+          <button class="wbtn" type="button" data-stepa="-1" aria-label="−">−</button>
+          <span class="autoval" id="autoWVal">+2</span>
+          <button class="wbtn" type="button" data-stepa="1" aria-label="+">+</button>
+          <span class="autonote" id="autoWNote"></span>
+        </span>
+      </div>
+      <div class="chips" id="chips" role="group" aria-label="Prestige-Ziele aus dem Guide"></div>
+      <div class="gauge-sub eyebrow" id="gaugeWave">Welle —</div>
+      <p class="wavewarn" id="waveWarn" style="display:none"></p>
+      <div class="bar" id="bar">
+        <div class="bar-need" id="barNeed"></div>
+        <div class="bar-over" id="barOver"></div>
+        <div class="bar-tick" id="barTick"><span id="barTickLbl"></span></div>
+      </div>
+      <div id="stampWrap"></div>
+      <p class="gauge-note" id="gaugeNote"></p>
+    </section>
+
+    <div class="tiers" id="tiers"></div>
+  </main>
+</div>
+
+<footer>
+  <p data-i18n="footer">Modell nach den Formeln aus <a href="https://shminer.miraheze.org/wiki/Guides/Events_Guide">Guides/Events Guide</a> und den Kosten aus <a href="https://shminer.miraheze.org/wiki/Events/Costs">Events/Costs</a>. Max-Welle und Einkommens-Scores sind Schätzungen: das Modell nimmt an, dass du ohne Heilung durchläufst.</p>
+  <div class="coffee">
+    <span data-i18n="coffee">Hilft dir der Rechner? Spendier mir einen Kaffee:</span>
+    <a class="coffeebtn" href="https://www.paypal.me/HeinrichsSven" target="_blank" rel="noopener noreferrer" data-i18n="coffeeBtn">☕ Buy me a coffee</a>
+  </div>
+</footer>
+
+<script>
+/* ============ Sprache ============
+   Zwei Woerterbuecher, eine Quelle: STR[lang][key]. Statische Texte tragen
+   data-i18n im HTML, dynamische holen sich ihren Text ueber T(key).
+   Upgrade-Namen kommen aus UPS (de) bzw. UPS_EN (en) ueber upName().        */
+let LANG = (localStorage.getItem('obelisk-lang')
+         || (navigator.language||'de').slice(0,2).toLowerCase()) === 'en' ? 'en' : 'de';
+const STR = {
+  de:{
+    eyebrow:'Idle Obelisk Miner · Event-Upgrades · v2.8.2',
+    h1a:'Was kaufe', h1b:'ich', h1c:'jetzt', h1d:'?',
+    thesis:'Trage deine Level ein. Der Rechner bewertet jedes nächste Level nach <b>relativem Überlebensgewinn pro Event-Currency</b> und zeigt pro Tier den besten Kauf. Vier Tiers, vier Währungen, vier getrennte Ranglisten.',
+    baseHead:'Grundwerte',
+    P:'Prestige-Rang', PHint:'Schaltet Upgrades frei',
+    autoW:'Ziel-Welle automatisch',
+    autoWFrom:'Max-Welle {M} → Ziel {W}',
+
+    tempo:'Gewichtung', tempoHint:'Wie stark zaehlt Tempo gegen Ueberleben?',
+    tempoLeft:'nur Ueberleben', tempoRight:'nur Tempo',
+    gemHead:'Gem-Upgrades',
+    gemHP:'+10 % Max-HP · Level', gemHPHint:'Cap 5 + 1 je Prestige-Rang',
+    gemDMG:'+10 % Schaden · Level', gemDMGHint:'Cap 5 + 1 je Prestige-Rang',
+    gemES:'+125 % Event-Speed · Level', gemESHint:'Cap 1, +1 je 5 Prestige-Ränge, max 3',
+    gemCur:'2x Event-Währungen', gemCurHint:'Verdoppelt alle Erträge · Cap 1',
+    lvlHead:'Gekaufte Level', resetBtn:'Prestigen · Run zurücksetzen',
+    resetHint:'Setzt alle Tier-Level zurück und rechnet die verdienten Prestige-Ränge an',
+    prestigeGain:'Prestige: +{G} Rang → P{P}. Alle Tier-Level zurückgesetzt.',
+    prestigeNone:'Noch kein Prestige möglich – dafür brauchst du Welle 10. Level zurückgesetzt.',
+    prestigeGainN:'Prestige: +{G} Ränge → P{P}. Alle Tier-Level zurückgesetzt.',
+    prestigeReady:'Auf Ziel-Welle {M} bekommst du <b>+{G}</b> Prestige-Rang → <b>P{P}</b>.',
+    prestigeReadyN:'Auf Ziel-Welle {M} bekommst du <b>+{G}</b> Prestige-Ränge → <b>P{P}</b>.',
+    prestigeWait:'Ein Prestige ist erst ab Welle 10 möglich (Ziel-Welle {M}).',
+    prestigeFlat:'Ziel-Welle {M} entspricht Rang <b>P{T}</b> – du bist schon <b>P{P}</b>, ein Reset bringt keinen Rang.',
+    prestigeGain0:'Kein Rang dazu. Alle Tier-Level zurückgesetzt, Rang bleibt P{P}.',
+    prestigeRisk:'Geschätzte Max-Welle: {X} – liegt deutlich unter dem Ziel.',
+    saveFile:'Stand speichern', loadFile:'Stand laden', copyCode:'Code kopieren',
+    syncIdle:'Server-Sync', syncNow:'Neu laden', syncBusy:'Server…',
+    syncOk:'Mit Server synchron', syncErr:'Server nicht erreichbar',
+    syncPulled:'Stand vom Server geladen ({Z})',
+    syncSaved:'Auf Server gespeichert ({Z})',
+    syncEmpty:'Server hat noch keinen Stand – dieser wird hochgeladen.',
+    syncErrDetail:'Server nicht erreichbar ({E}) – Stand bleibt lokal.',
+    codeSummary:'Code zum Kopieren oder Einfügen', applyCode:'Code einlesen',
+    bpHead:'Schaden-Breakpoint', targetWave:'Ziel-Welle',
+    chipLbl:'Prestige-Route aus dem Guide:', chipGoal:'Ziel',
+    kHP:'HP', kDMG:'Schaden', kAS:'Angriffstempo', kMS:'Lauftempo', kBlock:'Block',
+    kCrit:'Crit', kES:'Event-Speed', k2x:'2x Währung', k5x:'5x Drop',
+    kYield:'Ertrag/Gegner', kPM:'Prestige-Multi', kRate:'Tempo-Index', kMW:'Max-Welle ~',
+    tier:'Tier', curA:'Währung A · jede Welle', curB:'Währung B · jede 5. Welle',
+    curC:'Währung C · jede 10. Welle', curD:'Währung D · jede 15. Welle',
+    waveLbl:'Welle', enemyHP:'Gegner-HP', yourDmg:'dein Schaden',
+    bpOver:'Überschuss · keinen Schaden mehr kaufen',
+    bpHits:'Treffer pro Gegner · Schaden lohnt noch',
+    noteOver:'Du tötest Gegner auf Welle {W} mit einem Treffer. Jeder weitere Schadenspunkt ist <b>komplett verschwendet</b>. Alles in HP, Angriffstempo und Gegner-Debuffs.',
+    noteUnder:'Du brauchst noch <b>{D} Schaden</b>, um auf Welle {W} zu one-shotten. Bis dahin ist Schaden dein stärkstes Upgrade – danach sofort umschalten.',
+    tipWave:'<b>Tipp zur Ziel-Welle:</b> stell sie nur <b>1–3 Wellen</b> über deine aktuelle Max-Welle. Der Rechner bewertet Upgrades gegen die Gegner dieser Welle – zielst du zu weit, kaufst du Schaden für Gegner, die noch außer Reichweite sind, statt HP und Angriffstempo für den Kampf, an dem du gerade stirbst.',
+    warnWave:'Ziel-Welle <b>{W}</b> und geschätzte Max-Welle <b>{M}</b> liegen weit auseinander. Die Rangliste bewertet dann Gegner, die noch außer Reichweite sind – näher an <b>{S}</b> zeigt sie dir, was dich jetzt weiterbringt.',
+    empty:'Nichts sinnvoll kaufbar – alles gemaxt, gesperrt oder ohne Wirkung auf die Ziel-Welle.',
+    showMore:'Weitere {N} anzeigen', showLess:'Weniger anzeigen',
+    chainStep:'Erster Schritt: {N} für {C} – {R} Level bis zum Sprung',
+    nextVisible:'Als nächstes sichtbar:',
+    lvl:'Level', currency:'Currency', unlocks:'↳ schaltet frei:',
+    capBundle:'↳ danach {N} für {F} · zusammen {C}',
+    dmgJump:'Schaden-Sprung', hitsBadge:'{A} → {B} Treffer',
+    lvlsTotal:'{N} Level · {C} Currency gesamt', buyAll:'alle',
+    capBadge:'Cap', buyLevel:'auf Level', prestigeReq:'Prestige',
+    firstBuy:'erst „{N}“ kaufen', lockedPre:'Gesperrt: ',
+    saved:'Gespeichert als {N}.', loaded:'Stand geladen', savedOn:' — gesichert am {D}',
+    badStand:'Das ist kein gültiger Stand.', badFile:'Die Datei ließ sich nicht lesen.',
+    badCode:'Der Code ist unvollständig oder verändert.', needCode:'Erst einen Code einfügen.',
+    copied:'Code kopiert.', copyBlocked:'Kopieren blockiert — Feld ist markiert, Strg+C.',
+    dlBlocked:'Download blockiert — nimm den Code aus dem Feld.',
+    footer:'Modell nach den Formeln aus <a href="https://shminer.miraheze.org/wiki/Guides/Events_Guide">Guides/Events Guide</a> und den Kosten aus <a href="https://shminer.miraheze.org/wiki/Events/Costs">Events/Costs</a>. Max-Welle und Einkommens-Scores sind Schätzungen.',
+    coffee:'Hilft dir der Rechner? Spendier mir einen Kaffee:',
+    coffeeBtn:'☕ Buy me a coffee',
+    langBtn:'EN'
+  },
+  en:{
+    eyebrow:'Idle Obelisk Miner · Event Upgrades · v2.8.2',
+    h1a:'What do I', h1b:'buy', h1c:'now', h1d:'?',
+    thesis:'Enter your levels. The calculator rates every next level by <b>relative survival gain per event currency</b> and shows the best buy per tier. Four tiers, four currencies, four separate rankings.',
+    baseHead:'Base values',
+    P:'Prestige rank', PHint:'Unlocks upgrades',
+    autoW:'Auto target wave',
+    autoWFrom:'Max wave {M} → target {W}',
+
+    tempo:'Weighting', tempoHint:'How much does pace count against survival?',
+    tempoLeft:'survival only', tempoRight:'pace only',
+    gemHead:'Gem upgrades',
+    gemHP:'+10 % max HP · level', gemHPHint:'Cap 5 + 1 per prestige rank',
+    gemDMG:'+10 % damage · level', gemDMGHint:'Cap 5 + 1 per prestige rank',
+    gemES:'+125 % event speed · level', gemESHint:'Cap 1, +1 per 5 prestige ranks, max 3',
+    gemCur:'2x event currencies', gemCurHint:'Doubles all yields · cap 1',
+    lvlHead:'Purchased levels', resetBtn:'Prestige · reset run',
+    resetHint:'Resets all tier levels and applies the prestige ranks you earned',
+    prestigeGain:'Prestige: +{G} rank → P{P}. All tier levels reset.',
+    prestigeNone:'No prestige available yet – you need wave 10. Levels reset.',
+    prestigeGainN:'Prestige: +{G} ranks → P{P}. All tier levels reset.',
+    prestigeReady:'At target wave {M} you gain <b>+{G}</b> prestige rank → <b>P{P}</b>.',
+    prestigeReadyN:'At target wave {M} you gain <b>+{G}</b> prestige ranks → <b>P{P}</b>.',
+    prestigeWait:'Prestige is possible from wave 10 onwards (target wave {M}).',
+    prestigeFlat:'Target wave {M} equals rank <b>P{T}</b> – you are already <b>P{P}</b>, a reset gains no rank.',
+    prestigeGain0:'No rank gained. All tier levels reset, rank stays P{P}.',
+    prestigeRisk:'Estimated max wave: {X} – well below the target.',
+    saveFile:'Save state', loadFile:'Load state', copyCode:'Copy code',
+    syncIdle:'Server sync', syncNow:'Reload', syncBusy:'Server…',
+    syncOk:'In sync with server', syncErr:'Server unreachable',
+    syncPulled:'State loaded from server ({Z})',
+    syncSaved:'Saved to server ({Z})',
+    syncEmpty:'Server has no state yet – uploading this one.',
+    syncErrDetail:'Server unreachable ({E}) – state stays local.',
+    codeSummary:'Code to copy or paste', applyCode:'Apply code',
+    bpHead:'Damage breakpoint', targetWave:'Target wave',
+    chipLbl:'Prestige route from the guide:', chipGoal:'Goal',
+    kHP:'HP', kDMG:'Damage', kAS:'Attack speed', kMS:'Move speed', kBlock:'Block',
+    kCrit:'Crit', kES:'Event speed', k2x:'2x currency', k5x:'5x drop',
+    kYield:'Yield/monster', kPM:'Prestige multi', kRate:'Pace index', kMW:'Max wave ~',
+    tier:'Tier', curA:'Currency A · every wave', curB:'Currency B · every 5th wave',
+    curC:'Currency C · every 10th wave', curD:'Currency D · every 15th wave',
+    waveLbl:'Wave', enemyHP:'monster HP', yourDmg:'your damage',
+    bpOver:'Surplus · stop buying damage',
+    bpHits:'hits per monster · damage still pays',
+    noteOver:'You one-shot monsters on wave {W}. Every further damage point is <b>completely wasted</b>. Put everything into HP, attack speed and monster debuffs.',
+    noteUnder:'You still need <b>{D} damage</b> to one-shot on wave {W}. Until then damage is your strongest upgrade – switch immediately after.',
+    tipWave:'<b>Target wave tip:</b> set it just <b>1–3 waves</b> above your current max wave. The calculator rates upgrades against the monsters of that wave – aim too far and you buy damage for monsters still out of reach, instead of HP and attack speed for the fight you actually die in.',
+    warnWave:'Target wave <b>{W}</b> and estimated max wave <b>{M}</b> are far apart. The ranking then rates monsters still out of reach – closer to <b>{S}</b> it shows what helps you right now.',
+    empty:'Nothing worth buying – all maxed, locked, or without effect on the target wave.',
+    showMore:'Show {N} more', showLess:'Show less',
+    chainStep:'First step: {N} for {C} – {R} levels to the jump',
+    nextVisible:'Unlocks next:',
+    lvl:'Level', currency:'currency', unlocks:'↳ unlocks:',
+    capBundle:'↳ then {N} for {F} · {C} together',
+    dmgJump:'Damage jump', hitsBadge:'{A} → {B} hits',
+    lvlsTotal:'{N} levels · {C} currency total', buyAll:'all',
+    capBadge:'Cap', buyLevel:'to level', prestigeReq:'Prestige',
+    firstBuy:'buy “{N}” first', lockedPre:'Locked: ',
+    saved:'Saved as {N}.', loaded:'State loaded', savedOn:' — saved on {D}',
+    badStand:'That is not a valid state.', badFile:'The file could not be read.',
+    badCode:'The code is incomplete or altered.', needCode:'Paste a code first.',
+    copied:'Code copied.', copyBlocked:'Copy blocked — field is selected, Ctrl+C.',
+    dlBlocked:'Download blocked — take the code from the field.',
+    footer:'Model based on the formulas from <a href="https://shminer.miraheze.org/wiki/Guides/Events_Guide">Guides/Events Guide</a> and the costs from <a href="https://shminer.miraheze.org/wiki/Events/Costs">Events/Costs</a>. Max wave and income scores are estimates.',
+    coffee:'Does this calculator help you? Buy me a coffee:',
+    coffeeBtn:'☕ Buy me a coffee',
+    langBtn:'DE'
+  }
+};
+function T(k,vars){
+  let s=(STR[LANG] && STR[LANG][k]!==undefined) ? STR[LANG][k] : (STR.de[k]||k);
+  if(vars) Object.keys(vars).forEach(v=>{ s=s.split('{'+v+'}').join(vars[v]); });
+  return s;
+}
+/* ============ upgrade catalogue ============ */
+const UPS = [
+  // tier, id, name, base cost, base max, prestige req, kind
+  {t:1,id:'ad1',   n:'+1 Attack Damage',            b:5,     m:50, r:0,  k:'c'},
+  {t:1,id:'hp1',   n:'+2 Maximum Health',           b:6,     m:50, r:0,  k:'c'},
+  {t:1,id:'as1',   n:'+0.02 Attack Speed',          b:8,     m:25, r:0,  k:'c'},
+  {t:1,id:'ms1',   n:'+0.03 Move Speed',            b:10,    m:25, r:0,  k:'i'},
+  {t:1,id:'es1',   n:'+3 % Event Game Speed',       b:12,    m:25, r:1,  k:'i'},
+  {t:1,id:'crit1', n:'+1 % Crit / +0.10 Crit Dmg',  b:20,    m:25, r:2,  k:'c'},
+  {t:1,id:'combo1',n:'+1 AD / +2 HP',               b:75,    m:25, r:2,  k:'c'},
+  {t:1,id:'cap1',  n:'+1 Tier-1 Upgrade Caps',      b:2500,  m:10, r:4,  k:'cap'},
+  {t:1,id:'pb1',   n:'+1 % Prestige Bonus',         b:25000, m:5,  r:8,  k:'c'},
+  {t:1,id:'big1',  n:'+3 AD / +3 HP',               b:5000,  m:40, r:10, k:'c'},
+
+  {t:2,id:'hp2',   n:'+3 Maximum Health',           b:5,     m:25, r:0,  k:'c'},
+  {t:2,id:'eas2',  n:'−0.02 Enemy Attack Speed',    b:8,     m:15, r:0,  k:'c'},
+  {t:2,id:'ead2',  n:'−1 Enemy Attack Damage',      b:12,    m:10, r:0,  k:'c'},
+  {t:2,id:'ecc2',  n:'−1 % Enemy Crit / −0.10 ECD', b:20,    m:15, r:1,  k:'c'},
+  {t:2,id:'combo2',n:'+1 AD / +0.01 Attack Speed',  b:40,    m:25, r:3,  k:'c'},
+  {t:2,id:'cap2',  n:'+1 Tier-2 Upgrade Caps',      b:500,   m:10, r:5,  k:'cap'},
+  {t:2,id:'pb2',   n:'+2 % Prestige Bonus',         b:650,   m:15, r:10, k:'c'},
+
+  {t:3,id:'ad3',   n:'+2 Attack Damage',            b:5,     m:20, r:1,  k:'c'},
+  {t:3,id:'as3',   n:'+0.02 Attack Speed',          b:8,     m:20, r:1,  k:'c'},
+  {t:3,id:'crit3', n:'+1 % Crit Chance',            b:12,    m:20, r:2,  k:'c'},
+  {t:3,id:'es3',   n:'+5 % Event Game Speed',       b:18,    m:20, r:3,  k:'i'},
+  {t:3,id:'combo3',n:'+3 AD / +3 HP',               b:30,    m:10, r:4,  k:'c'},
+  {t:3,id:'cap3',  n:'+1 Tier-3 Upgrade Caps',      b:250,   m:10, r:6,  k:'cap'},
+  {t:3,id:'drop3', n:'+3 % 5x Drop Chance',         b:300,   m:10, r:8,  k:'i'},
+  {t:3,id:'big3',  n:'+5 HP / +0.03 Attack Speed',  b:125,   m:40, r:10, k:'c'},
+
+  {t:4,id:'block4',n:'+1 % Block Chance',           b:10,    m:15, r:1,  k:'c'},
+  {t:4,id:'hp4',   n:'+5 Maximum Health',           b:12,    m:15, r:1,  k:'c'},
+  {t:4,id:'cd4',   n:'+0.10 Crit Dmg / −0.10 ECD',  b:15,    m:15, r:4,  k:'c'},
+  {t:4,id:'asms4', n:'+0.02 Atk Speed / +0.02 Move',b:20,    m:15, r:5,  k:'c'},
+  {t:4,id:'combo4',n:'+4 HP / +4 AD',               b:40,    m:15, r:6,  k:'c'},
+  {t:4,id:'cap4',  n:'+1 Tier-4 Upgrade Caps',      b:250,   m:10, r:6,  k:'cap'},
+  {t:4,id:'capcap4',n:'+1 Cap of Cap Upgrades',     b:500,   m:10, r:7,  k:'capcap'},
+  {t:4,id:'big4',  n:'+10 HP / +0.05 Attack Speed', b:150,   m:40, r:10, k:'c'},
+];
+const CURNAME = {1:'Währung A · jede Welle',2:'Währung B · jede 5. Welle',3:'Währung C · jede 10. Welle',4:'Währung D · jede 15. Welle'};
+/* Englische Upgrade-Namen, genau wie im Wiki. Schluessel = Upgrade-ID. */
+const UPS_EN = {
+  ad1:'+1 Attack Damage', hp1:'+2 Maximum Health', as1:'+0.02 Attack Speed',
+  ms1:'+0.03 Move Speed', es1:'+3 % Event Game Speed',
+  crit1:'+1 % Crit Chance / +0.10 Crit Dmg', combo1:'+1 AD / +2 HP',
+  cap1:'+1 Tier 1 Upgrade Caps', pb1:'+1 % Prestige Bonus', big1:'+3 AD / +3 HP',
+  hp2:'+3 Maximum Health', eas2:'−0.02 Enemy Attack Speed', ead2:'−1 Enemy Attack Damage',
+  ecc2:'−1 % Enemy Crit / −0.10 ECD', combo2:'+1 AD / +0.01 Attack Speed',
+  cap2:'+1 Tier 2 Upgrade Caps', pb2:'+2 % Prestige Bonus',
+  ad3:'+2 Attack Damage', as3:'+0.02 Attack Speed', crit3:'+1 % Crit Chance',
+  es3:'+5 % Event Game Speed', combo3:'+3 AD / +3 HP', cap3:'+1 Tier 3 Upgrade Caps',
+  drop3:'+3 % 5x Drop Chance', big3:'+5 HP / +0.03 Attack Speed',
+  block4:'+1 % Block Chance', hp4:'+5 Maximum Health', cd4:'+0.10 Crit Dmg / −0.10 ECD',
+  asms4:'+0.02 Atk Speed / +0.02 Move', combo4:'+4 HP / +4 AD',
+  cap4:'+1 Tier 4 Upgrade Caps', capcap4:'+1 Cap of Cap Upgrades',
+  big4:'+10 HP / +0.05 Attack Speed'
+};
+function upName(u){ return (LANG==='en' && UPS_EN[u.id]) ? UPS_EN[u.id] : u.n; }
+function curName(t){ return T({1:'curA',2:'curB',3:'curC',4:'curD'}[t]); }
+const L = {}; UPS.forEach(u=>L[u.id]=0);
+const TIERLIST = {1:[],2:[],3:[],4:[]};
+UPS.forEach(u=>TIERLIST[u.t].push(u));
+
+/* ============ Freischaltung ============
+   Zwei Bedingungen, beide müssen erfüllt sein:
+   1. Prestige-Rang >= Anforderung des Upgrades
+   2. Das vorherige Upgrade im selben Tier hat mindestens Level 1
+      (die Blöcke schalten sich der Reihe nach frei)                        */
+function unlockState(u,P,lv){
+  lv = lv || L;
+  const list=TIERLIST[u.t], idx=list.indexOf(u);
+  if(u.r>P) return {open:false, why:T('prestigeReq')+' '+u.r};
+  for(let i=0;i<idx;i++){
+    if(lv[list[i].id]===0) return {open:false, why:T('firstBuy',{N:upName(list[i])})};
+  }
+  return {open:true, why:''};
+}
+/* Der erste noch nicht freigeschaltete Eintrag eines Tiers - als Vorschau */
+function nextReveal(t,P){
+  const list=TIERLIST[t];
+  for(const u of list){
+    const st=unlockState(u,P,L);
+    if(!st.open) return {u,why:st.why};
+  }
+  return null;
+}
+
+/* ============ model ============ */
+const cost = (b,lv)=>Math.round(b*Math.pow(1.25,lv));           // lv = current level -> next costs
+/* Caps. WICHTIG: immer den uebergebenen Stand lesen, nicht das globale L -
+   sonst rechnen alle Probe-Szenarien mit den echten Caps statt mit den
+   hypothetischen und Cap-Upgrades bewerten sich selbst falsch.
+   Regel aus dem Wiki: "Cap of Cap" hebt die Caps ALLER vier Tier-Cap-Upgrades,
+   ist selbst aber fix bei 10 ("Is not increased by Tier 4 Upgrade Caps").   */
+const capOf = (t,lv) => ({1:(lv||L).cap1,2:(lv||L).cap2,3:(lv||L).cap3,4:(lv||L).cap4}[t]||0);
+function effMax(u,lv){
+  lv = lv || L;
+  if(u.k==='capcap') return u.m;
+  if(u.k==='cap')    return u.m + lv.capcap4;
+  return u.m + capOf(u.t,lv);
+}
+function derive(lv,cfg){
+  const flatHP = 2*lv.hp1 + 2*lv.combo1 + 3*lv.big1 + 3*lv.hp2 + 3*lv.combo3
+               + 5*lv.big3 + 5*lv.hp4 + 4*lv.combo4 + 10*lv.big4;
+  const flatDMG= 1*lv.ad1 + 1*lv.combo1 + 3*lv.big1 + 1*lv.combo2 + 2*lv.ad3
+               + 3*lv.combo3 + 4*lv.combo4;
+  const step = 0.10 + 0.01*lv.pb1 + 0.02*lv.pb2;
+  const PM   = 1 + cfg.P*step;
+  return {
+    HP : Math.round((100+flatHP)*(1+0.1*cfg.gemHP)*PM),
+    DMG: Math.round((10+flatDMG)*(1+0.1*cfg.gemDMG)*PM),
+    AS : cfg.baseAS + 0.02*lv.as1 + 0.01*lv.combo2 + 0.02*lv.as3
+         + 0.03*lv.big3 + 0.02*lv.asms4 + 0.05*lv.big4,
+    MS : cfg.baseMS + 0.03*lv.ms1 + 0.02*lv.asms4,
+    block: Math.min(0.95,0.01*lv.block4),
+    step, PM,
+    ES : 1 + 1.25*cfg.gemES + 0.03*lv.es1 + 0.05*lv.es3,
+    CC : Math.min(1, cfg.baseCC/100 + 0.01*(lv.crit1 + lv.crit3)),
+    CD : cfg.baseCD + 0.10*(lv.crit1 + lv.cd4)
+  };
+}
+/* ===== Treffer pro Gegner, exakt =====
+   Schaden wirkt in ganzen Treffern, nicht kontinuierlich. Ueberschuss beim
+   Todesstoss ist verloren. Crit kann daher nur helfen, wenn er eine ganze
+   Trefferstufe einspart - toetest du schon mit einem Treffer, ist Crit wertlos.
+   E[Treffer] = Summe der Wahrscheinlichkeit, nach k Treffern noch zu leben.
+   Nach k Treffern liegt der Schaden bei (k + J*(CD-1)) x DMG, J ~ Bin(k, CC). */
+function binCDF(n,p,m){                       // P(J <= m), J ~ Bin(n,p)
+  if(m<0) return 0;
+  if(m>=n) return 1;
+  if(p>=1) return 0;                          // alle Treffer criten -> J = n > m
+  if(p<=0) return 1;                          // kein Crit -> J = 0 <= m
+  let term=Math.pow(1-p,n), sum=term;
+  for(let j=1;j<=m;j++){ term*= (n-j+1)/j * p/(1-p); sum+=term; }
+  return Math.min(1,sum);
+}
+function expHits(ehp,dmg,cc,cd){
+  const need=ehp/Math.max(1e-9,dmg);
+  const plain=Math.max(1,Math.ceil(need-1e-12));
+  if(cc<=0 || cd<=1 || plain===1) return plain;
+  let E=0;
+  for(let k=0;k<plain;k++){
+    const jmin=Math.ceil((need-k)/(cd-1)-1e-12);   // so viele Crits braucht es noch
+    // lebt nach k Treffern noch = weniger als jmin Crits gelandet
+    const alive = (jmin<=0) ? 0 : (jmin>k ? 1 : binCDF(k,cc,jmin-1));
+    E+=alive;
+    if(alive<=0) break;
+  }
+  return Math.max(1,E);
+}
+function hitsAt(s,e){ return expHits(e.hp,Math.max(1,s.DMG),s.CC,s.CD); }
+function enemy(W,lv){
+  const i=W-1;
+  return {
+    hp : 11+7*i,
+    d  : Math.max(1, 3+0.6*i - lv.ead2),
+    as : Math.max(0.01, 0.82+0.02*i - 0.02*lv.eas2),
+    cc : Math.max(0, Math.min(100,1+i)/100 - 0.01*lv.ecc2),
+    cd : Math.max(1, 1.05+0.05*i - 0.10*(lv.ecc2 + lv.cd4))
+  };
+}
+/* survivability score at wave W */
+function S(lv,cfg,W){
+  const s=derive(lv,cfg), e=enemy(W,lv);
+  const hits=hitsAt(s,e);
+  const perMon = hits*(e.as/s.AS)*e.d*(1+e.cc*(e.cd-1))*(1-s.block);
+  return s.HP/Math.max(1e-9,perMon);
+}
+/* rough max wave: cumulative damage over 5 monsters per wave until HP gone */
+function maxWave(lv,cfg){
+  const s=derive(lv,cfg); let cum=0;
+  for(let w=1;w<=400;w++){
+    const e=enemy(w,lv);
+    const hits=hitsAt(s,e);
+    const taken=5*hits*(e.as/s.AS)*e.d*(1+e.cc*(e.cd-1))*(1-s.block);
+    if(cum+taken>s.HP) return w-1;
+    cum+=taken;
+  }
+  return 400;
+}
+/* ===== Fortschrittsrate: Currency pro Echtzeit =====
+   Zeit je Gegner = Treffer/Angriffstempo + Laufweg/Lauftempo.
+   Event-Speed skaliert die gesamte Spielzeit, 5x-Drop den Ertrag je Gegner.
+   Angriffstempo und Schaden wirken doppelt: sie heben Ueberleben UND Tempo. */
+const WALK = 0.6;
+/* Ertrags-Multiplikator je Gegner.
+   ACHTUNG: "2x Currencies" aus den Player-Stats IST das Gem-Upgrade
+   "2x Event-Waehrungen". 100 % bedeutet: gekauft, Ertrag x2. Es darf deshalb
+   NICHT zusaetzlich ein zweites Mal verdoppelt werden.                       */
+function curMult(lv,cfg){
+  return (1+cfg.cur2) * (1+0.03*lv.drop3*4);
+}
+function rate(lv,cfg){
+  const s=derive(lv,cfg), e=enemy(cfg.W,lv);
+  const hits=hitsAt(s,e);
+  const tMon = hits/Math.max(0.05,s.AS) + WALK/Math.max(0.05,s.MS);
+  return curMult(lv,cfg) * s.ES / tMon;   // 2x-Waehrungen, 5x-Drop, Event-Speed
+}
+
+/* ============ scoring ============ */
+/* Zwei Achsen: dS = Ueberleben, dR = Fortschrittstempo.
+   Gewichtung ueber den Regler "tempo" (0 = nur Ueberleben, 1 = nur Tempo). */
+function blend(dS,dR,cfg){ return (1-cfg.tempo)*dS + cfg.tempo*dR; }
+
+function rawScore(u,cfg,lv){
+  const cur=lv[u.id], max=effMax(u,lv);
+  if(cur>=max) return null;
+  const c=cost(u.b,cur);
+  let dS=0, dR=0;
+
+  if(u.k==='cap' || u.k==='capcap'){
+    /* Ein Cap-Upgrade wirkt nicht selbst - es erlaubt nur weitere Level.
+       Bewertet wird deshalb der Weg: Cap kaufen UND das dadurch moegliche
+       Level gleich mitkaufen. Gesamtkosten gegen Gesamtgewinn.
+       "Cap of Cap" hebt die Caps aller vier Tier-Cap-Upgrades, greift also
+       eine Ebene hoeher: Cap-of-Cap -> Tier-Cap -> echtes Upgrade.
+       Nur Ziele, die AM Cap stehen, sind blockiert - genau die schaltet
+       das Cap-Upgrade frei. Alle anderen koennen ohnehin gekauft werden. */
+    const nx=Object.assign({},lv);
+    nx[u.id]++;                                    // Cap-Level gekauft
+    let spent=c;
+    /* Namen der Folgekaeufe. Muss VOR den if-Zweigen stehen, damit es im
+       return sichtbar ist - pick/tierCap sind blockskopiert.            */
+    const followPath=[];
+
+    const blocked = u.k==='cap'
+      ? UPS.filter(x=>x.t===u.t && x.k!=='cap' && x.k!=='capcap'
+                   && unlockState(x,cfg.P,lv).open
+                   && lv[x.id]>=effMax(x,lv))       // stand vorher am Cap
+      : UPS.filter(x=>x.k==='cap'
+                   && unlockState(x,cfg.P,lv).open
+                   && lv[x.id]>=effMax(x,lv));
+
+    if(!blocked.length) return null;                // nichts blockiert -> kein Nutzen
+
+    if(u.k==='cap'){
+      /* Bestes jetzt freigeschaltetes Level dazukaufen: das mit dem besten
+         Gewinn pro Currency, denn genau das wuerde man real kaufen.       */
+      let pick=null, pickSc=-1;
+      blocked.forEach(x=>{
+        const r=rawScore(x,cfg,nx);
+        if(r && r.sc>pickSc){ pickSc=r.sc; pick=x; }
+      });
+      if(!pick) return null;
+      spent += cost(pick.b,nx[pick.id]);
+      nx[pick.id]++;
+      followPath.push(pick);
+    } else {
+      /* Cap-of-Cap: guenstigstes blockiertes Tier-Cap plus dessen bestes
+         freigeschaltetes Level - sonst bliebe der Gewinn rechnerisch 0.   */
+      let tierCap=null, best=Infinity;
+      blocked.forEach(x=>{ const cc=cost(x.b,nx[x.id]); if(cc<best){best=cc;tierCap=x;} });
+      if(!tierCap) return null;
+      spent += best; nx[tierCap.id]++;
+      followPath.push(tierCap);
+      const inner=UPS.filter(x=>x.t===tierCap.t && x.k!=='cap' && x.k!=='capcap'
+                   && unlockState(x,cfg.P,nx).open && nx[x.id]<effMax(x,nx));
+      let pick=null, pickSc=-1;
+      inner.forEach(x=>{ const r=rawScore(x,cfg,nx); if(r && r.sc>pickSc){pickSc=r.sc;pick=x;} });
+      if(!pick) return null;
+      spent += cost(pick.b,nx[pick.id]);
+      nx[pick.id]++;
+      followPath.push(pick);
+    }
+    dS = S(nx,cfg,cfg.W)/S(lv,cfg,cfg.W) - 1;
+    dR = rate(nx,cfg)/rate(lv,cfg) - 1;
+    const gainC=blend(dS,dR,cfg);
+    /* capCost = das Cap-Upgrade allein (das, was der naechste Klick kostet).
+       cost    = Buendel inkl. Folgekauf, weiter die Basis fuer den Score.
+       Die Anzeige braucht beide getrennt, sonst steht als Preis fuer
+       "Level 1" die Summe zweier Kaeufe.
+       followPath haelt die Folgekaeufe in Kaufreihenfolge, damit die
+       Anzeige sagen kann, WOFUER die Zusatzkosten anfallen.            */
+    return {cost:spent,capCost:c,follow:spent-c,followPath:followPath.slice(),
+            gain:gainC,dS,dR,sc:gainC/spent*1000,next:cur+1,bundle:true};
+  } else {
+    const nx=Object.assign({},lv); nx[u.id]++;
+    dS = S(nx,cfg,cfg.W)/S(lv,cfg,cfg.W) - 1;
+    dR = rate(nx,cfg)/rate(lv,cfg) - 1;
+  }
+  const gain=blend(dS,dR,cfg);
+  return {cost:c,gain,dS,dR,sc:gain/c*1000,next:cur+1};
+}
+
+/* Kettenbewertung. Zwei Sorten Ketten, beide gegen Gesamtkosten gerechnet:
+   A) Freischalt-Kette  – ein schwaches Upgrade macht ein starkes sichtbar
+   B) Schaden-Kette     – mehrere Level derselben Upgrades senken gemeinsam
+                          die Trefferzahl pro Gegner (Treppenstufe)        */
+const CHAIN = 4;
+/* Welche "Weitere anzeigen"-Bereiche offen sind. run() baut die Karten
+   komplett neu, sonst wuerde jeder Kauf die Liste wieder zuklappen.     */
+/* Auto-Ziel-Welle: Zustand + Abstand zur Max-Welle.
+   Wird mitgespeichert, damit die Einstellung geraeteuebergreifend gilt. */
+const AUTOW = {on:false, gap:2};
+const OPEN_MORE = new Set();
+const DMGSTEP = {ad1:1, combo1:1, big1:3, combo2:1, ad3:2, combo3:3, combo4:4};
+
+/* Billigster Weg zur nächsten Treppenstufe, komplett innerhalb eines Tiers.
+   Greedy nach Kosten pro Flat-Schadenspunkt.                              */
+function dmgChain(t,cfg){
+  const base=S(L,cfg,cfg.W), lv=Object.assign({},L);
+  const d0=derive(L,cfg), e=enemy(cfg.W,L);
+  const hits0=Math.ceil(e.hp/Math.max(1,d0.DMG));  // garantierte Stufe, ohne Crit-Glueck
+  if(hits0<=1) return null;                       // schon One-Shot
+  const need=Math.ceil(e.hp/(hits0-1));           // Schaden für eine Stufe weniger
+  const pool=UPS.filter(x=>x.t===t && DMGSTEP[x.id] && unlockState(x,cfg.P,lv).open);
+  if(!pool.length) return null;
+
+  let spent=0, steps=0, counts={};
+  for(let guard=0; guard<400; guard++){
+    if(derive(lv,cfg).DMG>=need) break;
+    let pick=null, bestRatio=Infinity;
+    pool.forEach(x=>{
+      if(lv[x.id]>=effMax(x,lv)) return;
+      const r=cost(x.b,lv[x.id])/DMGSTEP[x.id];
+      if(r<bestRatio){bestRatio=r;pick=x;}
+    });
+    if(!pick) return null;                        // Stufe im Tier nicht erreichbar
+    spent+=cost(pick.b,lv[pick.id]); lv[pick.id]++;
+    counts[pick.id]=(counts[pick.id]||0)+1; steps++;
+  }
+  if(derive(lv,cfg).DMG<need) return null;
+  const dS=S(lv,cfg,cfg.W)/base-1;
+  const dR=rate(lv,cfg)/rate(L,cfg)-1;
+  const gain=blend(dS,dR,cfg);
+  /* Guenstigster Einzelschritt der Kette: damit die Rangliste auch das
+     einzelne Upgrade zeigen kann. Ein Level allein senkt die Trefferzahl
+     nicht, hat also dS=0 und wuerde sonst als "bringt nichts" rausfallen -
+     obwohl es der erste Schritt zu genau diesem Sprung ist.             */
+  let firstU=null, firstCost=Infinity;
+  UPS.filter(x=>x.t===t && DMGSTEP[x.id] && counts[x.id]).forEach(x=>{
+    const c=cost(x.b,L[x.id]);
+    if(c<firstCost){ firstCost=c; firstU=x; }
+  });
+  return {
+    sc:gain/spent*1000, gain, dS, dR, cost:spent, steps,
+    hitsFrom:hits0, hitsTo:hits0-1,
+    first: firstU ? {u:firstU, cost:firstCost} : null,
+    parts:Object.keys(counts).map(id=>({u:UPS.find(x=>x.id===id),n:counts[id]}))
+  };
+}
+
+function score(u,cfg){
+  const own=rawScore(u,cfg,L);
+  if(!own) return {maxed:true};
+
+  let best={sc:own.sc,unlocks:null};
+  const lv=Object.assign({},L);
+  const base=S(L,cfg,cfg.W), baseR=rate(L,cfg);
+  let cCum=0, path=[];
+
+  // Erster Schritt: u selbst
+  cCum += cost(u.b,lv[u.id]); lv[u.id]++;
+  for(let step=2;step<=CHAIN;step++){
+    // Was ist jetzt neu freigeschaltet und vorher nicht sichtbar war?
+    const cand=UPS.filter(x=>x.t===u.t && x!==u
+                 && unlockState(x,cfg.P,lv).open && !unlockState(x,cfg.P,L).open
+                 && lv[x.id]<effMax(x,lv));
+    if(!cand.length) break;
+    // besten neu sichtbaren Kandidaten dazunehmen
+    let pick=null,pickSc=-1;
+    cand.forEach(x=>{
+      const r=rawScore(x,cfg,lv);
+      if(r && r.sc>pickSc){pickSc=r.sc;pick=x;}
+    });
+    if(!pick) break;
+    cCum += cost(pick.b,lv[pick.id]); lv[pick.id]++;
+    path.push(pick.n);
+    const bundleGain = blend(S(lv,cfg,cfg.W)/base-1, rate(lv,cfg)/baseR-1, cfg);
+    const bundleSc = bundleGain/cCum*1000;
+    if(bundleSc>best.sc) best={sc:bundleSc,unlocks:path.slice()};
+  }
+  return {
+    maxed:false, cost:own.cost, gain:own.gain, dS:own.dS, dR:own.dR, next:own.next,
+    capCost:own.capCost, follow:own.follow, bundle:!!own.bundle, followPath:own.followPath,
+    sc:best.sc, ownSc:own.sc,
+    viaUnlock: best.unlocks && best.sc>own.sc*1.0001 ? best.unlocks : null
+  };
+}
+
+/* ============ Ziel-Welle: zwei synchrone Eingaben + Guide-Marken ============ */
+/* Empfohlene Prestige-Wellen aus dem Guide:
+   P1/W10 -> P3/W20 -> P5/W30 -> P10/W55 -> P20/W105 -> P40/W205, Ziel W250.
+   Der Chip zeigt Prestige-Rang und Welle, denn danach entscheidet man den Run. */
+const WMARKS=[
+  {w:10,  p:1},
+  {w:20,  p:3},
+  {w:30,  p:5},
+  {w:55,  p:10},
+  {w:105, p:20},
+  {w:205, p:40},
+  {w:250, p:null}          // Endziel, kein weiteres Prestige
+];
+function setW(v,fromEl){
+  const n=Math.min(250,Math.max(1,Math.round(v)||1));
+  const a=document.getElementById('W'), b=document.getElementById('W2');
+  if(fromEl!=='W')  a.value=n;
+  if(fromEl!=='W2') b.value=n;
+  run();
+}
+function buildChips(){
+  const c=document.getElementById('chips');
+  c.innerHTML='<span class="chiplbl">'+T('chipLbl')+'</span>'+WMARKS.map(m=>
+    '<button class="chip" type="button" data-w="'+m.w+'" aria-pressed="false">'
+    +(m.p? 'P'+m.p+' · W'+m.w : T('chipGoal')+' W'+m.w)+'</button>'
+  ).join('');
+}
+/* Chip-Klicks global, weil buildChips() beim Sprachwechsel erneut laeuft */
+document.getElementById('chips').addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-w]');
+  if(b) setW(+b.dataset.w,null);
+});
+document.querySelector('.wavectl').addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-dw]');
+  if(b) setW((+document.getElementById('W2').value||1)+(+b.dataset.dw),null);
+});
+document.getElementById('W2').addEventListener('input',e=>setW(+e.target.value,'W2'));
+document.getElementById('W').addEventListener('input',e=>setW(+e.target.value,'W'));
+
+/* ============ Prestige beim Reset ============
+   Regel aus dem Wiki: 1 Rang ab Welle 10, danach je 5 weitere Wellen.
+   Also  Raenge(W) = floor((W-10)/5) + 1  fuer W >= 10, sonst 0.        */
+/* Prestige-Rang aus einer Welle. WICHTIG: das Ergebnis ist der RANG, den man
+   mit dieser Welle erreicht - kein Zuwachs. Wer auf Welle 105 prestiget, ist
+   danach Rang 20, egal ob er vorher Rang 0 oder Rang 10 war.
+   Der Zuwachs ist deshalb rankForWave(W) - aktuellerRang, nie beides addiert.
+   Regel aus dem Wiki: 1 Rang ab Welle 10, danach je 5 weitere Wellen.      */
+function rankForWave(w){ return w<10 ? 0 : Math.floor((w-10)/5)+1; }
+/* Toleranz zwischen Ziel-Welle und geschaetzter Max-Welle. Erst ab diesem
+   Abstand kommt ein Hinweis: Glueck bei Crit, Block und Drops traegt einen
+   Run regelmaessig mehrere Wellen weiter als das Modell schaetzt.        */
+const PRESTIGE_SLACK = 6;
+
+/* ============ render ============ */
+/* Zahlformat folgt der Sprache: im EN-Modus stand vorher auch dort der
+   deutsche Tausenderpunkt (7.122 statt 7,122), was englisch als Dezimalwert
+   gelesen wird. Betrifft alle Kosten-Ausgaben, nicht nur die Cap-Zeile. */
+const fmt=n=>n.toLocaleString(LANG==='en'?'en-US':'de-DE');
+/* Zwei Achsen nebeneinander: Ueberleben (gruen) und Tempo (gelb) */
+function axes(dS,dR){
+  const f=(v,cls)=> v>0.00005
+    ? '<span class="'+cls+'">+'+(v*100).toFixed(2)+' %</span>'
+    : '<span class="z">–</span>';
+  return '<div class="axes">'+f(dS,'s')+f(dR,'r')+'</div>';
+}
+/* Score-Anzeige. Die Rohwerte spannen viele Zehnerpotenzen (Tier 1 kostet
+   sechsstellig, Tier 4 dreistellig), mit toFixed(2) stand ueberall "0.00".
+   Deshalb wird pro Tier relativ zum Besten skaliert: 100 = bester Kauf
+   dieses Tiers, alles andere im Verhaeltnis dazu.                        */
+function scFmt(sc,top){
+  if(!isFinite(sc)||sc<=0) return '0';
+  const rel=sc/top*100;
+  return rel>=99.5 ? '100' : rel>=10 ? rel.toFixed(0) : rel.toFixed(1);
+}
+function bump(id,d){
+  const u=UPS.find(x=>x.id===id);
+  L[id]=Math.min(effMax(u),Math.max(0,L[id]+d));
+  const inp=document.getElementById('in_'+id);
+  if(inp) inp.value=L[id];
+  run();
+}
+function buildInputs(){
+  const wrap=document.getElementById('levelGroups');
+  wrap.innerHTML='';
+  [1,2,3,4].forEach(t=>{
+    const d=document.createElement('details'); d.className='grp'; if(t===1)d.open=true;
+    d.innerHTML='<summary>Tier '+t+'</summary>';
+    UPS.filter(u=>u.t===t).forEach(u=>{
+      const row=document.createElement('div'); row.className='field step'; row.dataset.for=u.id;
+      /* Spalten: Label | − | Feld | + | "/ Cap". Gleiches Grid wie die
+         Gem-Zeilen, damit alle Eingabefelder untereinander stehen.      */
+      row.innerHTML='<label for="in_'+u.id+'">'+upName(u)+'</label>'
+        +'<button class="stp dn" type="button" data-step="'+u.id+'" data-d="-1" aria-label="−">−</button>'
+        +'<input type="number" id="in_'+u.id+'" min="0" value="'+L[u.id]+'">'
+        +'<button class="stp up" type="button" data-step="'+u.id+'" data-d="1" aria-label="+">+</button>'
+        +'<span class="cap" id="cap_'+u.id+'"></span>';
+      d.appendChild(row);
+      row.querySelector('input').addEventListener('input',e=>{
+        L[u.id]=Math.max(0,parseInt(e.target.value||'0',10)); run();
+      });
+    });
+    wrap.appendChild(d);
+  });
+}
+/* Stepper-Klicks. EIN globaler Handler, denn buildInputs() laeuft bei jedem
+   Sprachwechsel erneut - lokale Listener wuerden sich sonst vervielfachen
+   und ein Klick wuerde mehrere Level kaufen.                              */
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-step]');
+  if(t){ bump(t.dataset.step, +t.dataset.d); return; }
+  const g=ev.target.closest('[data-stepg]');
+  if(g){
+    const el=document.getElementById(g.dataset.stepg);
+    const max=(el.max!==''?+el.max:99), min=(el.min!==''?+el.min:0);
+    el.value=Math.max(min,Math.min(max,(+el.value||0)+(+g.dataset.d)));
+    run();
+  }
+});
+/* Feste Spielkonstanten. Stehen nicht mehr als Eingabefeld in der Seitenleiste,
+   weil sie im Spiel unveraenderlich sind: Angriffs- und Lauftempo starten bei 1,
+   Critchance bei 0 %, Critschaden bei Faktor 2. Nur hier anfassen, falls das
+   Spiel diese Basiswerte je aendert.                                          */
+const BASE_AS=1, BASE_MS=1, BASE_CC=0, BASE_CD=2;
+function readCfg(){
+  /* "2x Waehrungen" ist EIN Upgrade: das Gem-Level ist die einzige Quelle. */
+  const gemCur=+document.getElementById('gemCur').value?1:0;
+  return {
+    P:+document.getElementById('P').value||0,
+    W:Math.max(1,+document.getElementById('W').value||1),
+    baseAS:BASE_AS,
+    baseMS:BASE_MS,
+    baseCC:BASE_CC,
+    baseCD:BASE_CD,
+    cur2:gemCur?1:0,
+    gemHP:+document.getElementById('gemHP').value||0,
+    gemDMG:+document.getElementById('gemDMG').value||0,
+    gemES:+document.getElementById('gemES').value||0,
+    gemCur:gemCur,
+    tempo:(+document.getElementById('tempo').value||0)/100
+  };
+}
+function run(){
+  let cfg=readCfg();
+  let mw=maxWave(L,cfg);
+  /* Auto-Ziel-Welle: Ziel = Max-Welle + Abstand. maxWave() liest cfg.W nicht,
+     also kann das nicht schwingen - ein Durchlauf genuegt. Wird die Welle
+     angepasst, muss cfg neu gelesen werden, damit alles Folgende stimmt.  */
+  if(AUTOW.on){
+    const want=Math.min(250,Math.max(1,mw+AUTOW.gap));
+    const wEl=document.getElementById('W'), w2=document.getElementById('W2');
+    if(+wEl.value!==want){
+      wEl.value=want; if(w2) w2.value=want;
+      cfg=readCfg();
+    }
+  }
+  /* Kleine Herkunftsanzeige neben dem Abstand-Stepper: macht sichtbar,
+     woraus die Ziel-Welle gerade entsteht. */
+  const awn=document.getElementById('autoWNote');
+  if(awn) awn.textContent = AUTOW.on ? T('autoWFrom',{M:mw,W:cfg.W}) : '';
+  const s=derive(L,cfg), e=enemy(cfg.W,L);
+
+  // caps + Freischaltung an den Eingabefeldern
+  UPS.forEach(u=>{
+    const m=effMax(u,L), row=document.querySelector('[data-for="'+u.id+'"]');
+    const st=unlockState(u,cfg.P,L);
+    document.getElementById('cap_'+u.id).textContent='/ '+m;
+    const inp=document.getElementById('in_'+u.id); inp.max=m;
+    row.classList.toggle('locked', !st.open);
+    row.title = st.open ? '' : (T('lockedPre')+st.why);
+  });
+
+  /* Gem-Caps haengen am Prestige-Rang:
+     HP/Schaden = 5 + 1 je Rang, Event-Speed = 1 + 1 je 5 Raenge (max 3), 2x = 1 */
+  const gemCaps={gemHP:5+cfg.P, gemDMG:5+cfg.P,
+                 gemES:Math.min(3,1+Math.floor(cfg.P/5)), gemCur:1};
+  Object.keys(gemCaps).forEach(id=>{
+    const el=document.getElementById(id), lbl=document.getElementById('cap_'+id);
+    el.max=gemCaps[id];
+    if(+el.value>gemCaps[id]) el.value=gemCaps[id];
+    if(lbl) lbl.textContent='/ '+gemCaps[id];
+  });
+
+  refreshCode();
+  /* Prestige-Vorschau. Bezugsgroesse ist die ZIEL-Welle, nicht die geschaetzte
+     Max-Welle: du entscheidest bewusst, bis wohin du laufen willst, und die
+     Schaetzung ist nur ein Modellwert.
+     Der Hinweis kommt erst ab PRESTIGE_SLACK Wellen Abstand.               */
+  const pv=document.getElementById('prestigeView');
+  if(pv){
+    /* Zielrang aus der Welle, Zuwachs = Zielrang minus aktueller Rang.
+       Frueher wurde addiert (P10 + 20 = P30) - falsch: Welle 105 ergibt
+       Rang 20, wer schon P10 ist, gewinnt also nur 10 Raenge dazu.      */
+    const target=Math.min(60,rankForWave(cfg.W));
+    const gain=target-cfg.P;
+    const far = cfg.W - mw >= PRESTIGE_SLACK;
+    const hint = far ? ' <span class="riskhint">'+T('prestigeRisk',{X:mw,M:cfg.W})+'</span>' : '';
+    if(gain>0){
+      pv.className='prestigeview'+(far?' risk':'');
+      pv.innerHTML=T(gain===1?'prestigeReady':'prestigeReadyN',{M:cfg.W,G:gain,P:target})+hint;
+    } else if(target>0){
+      /* Ziel-Welle bringt keinen Rang mehr, weil der aktuelle schon hoeher
+         oder gleich ist - Reset waere ein Rueckschritt bzw. Nullsumme.   */
+      pv.className='prestigeview wait';
+      pv.innerHTML=T('prestigeFlat',{M:cfg.W,T:target,P:cfg.P})+hint;
+    } else {
+      pv.className='prestigeview wait';
+      pv.innerHTML=T('prestigeWait',{M:cfg.W});
+    }
+  }
+  const tv=Math.round(cfg.tempo*100);
+  document.getElementById('tempoVal').textContent=(100-tv)+' / '+tv;
+
+  // readout
+  document.getElementById('readout').innerHTML=[
+    [T('kHP'),fmt(s.HP)],[T('kDMG'),fmt(s.DMG)],[T('kAS'),s.AS.toFixed(2)],
+    [T('kMS'),s.MS.toFixed(2)],
+    [T('kBlock'),(s.block*100).toFixed(0)+'<small> %</small>'],
+    [T('kCrit'),(s.CC*100).toFixed(0)+'<small> % / '+s.CD.toFixed(2)+'×</small>'],
+    [T('kES'),s.ES.toFixed(2)+'<small>×</small>'],
+    [T('k2x'),(cfg.gemCur?'1':'0')+'<small> / 1</small>'],
+    [T('k5x'),(3*L.drop3)+'<small> %</small>'],
+    [T('kYield'),curMult(L,cfg).toFixed(2)+'<small>×</small>'],
+    [T('kPM'),s.PM.toFixed(2)+'<small>×</small>'],
+    [T('kRate'),rate(L,cfg).toFixed(2)],
+    [T('kMW'),mw]
+  ].map(([k,v])=>'<div class="cell"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>').join('');
+
+  // signature gauge
+  const need=e.hp, have=s.DMG, span=Math.max(need,have)*1.12;
+  const pctNeed=Math.min(100,need/span*100), pctHave=Math.min(100,have/span*100);
+  document.getElementById('gaugeWave').textContent=T('waveLbl')+' '+cfg.W+' · '+T('enemyHP')+' '+fmt(need)+' · '+T('yourDmg')+' '+fmt(have);
+  const wWarn=document.getElementById('waveWarn');
+  if(cfg.W - mw >= PRESTIGE_SLACK){
+    wWarn.style.display='block';
+    wWarn.innerHTML=T('warnWave',{W:cfg.W,M:mw,S:mw+2});
+  } else wWarn.style.display='none';
+  document.querySelectorAll('#chips .chip').forEach(ch=>
+    ch.setAttribute('aria-pressed', (+ch.dataset.w===cfg.W)?'true':'false'));
+  document.getElementById('barNeed').style.width=Math.min(pctHave,pctNeed)+'%';
+  const over=document.getElementById('barOver');
+  if(have>need){ over.style.left=pctNeed+'%'; over.style.width=(pctHave-pctNeed)+'%'; }
+  else { over.style.width='0%'; over.style.left=pctNeed+'%'; }
+  const tick=document.getElementById('barTick');
+  tick.style.left=pctNeed+'%';
+  document.getElementById('barTickLbl').textContent=T('bpHead')+' '+fmt(need);
+  const hits=Math.ceil(need/Math.max(1,have));
+  document.getElementById('stampWrap').innerHTML = have>=need
+    ? '<span class="stamp stop">'+T('bpOver')+'</span>'
+    : '<span class="stamp go">'+hits+' '+T('bpHits')+'</span>';
+  /* Kein Crit-Exkurs mehr: der Hinweis, der wirklich Wellen spart, ist die
+     Wahl der Ziel-Welle. Der steht deshalb dauerhaft unter dem Balken.     */
+  document.getElementById('gaugeNote').innerHTML = (have>=need
+    ? T('noteOver',{W:cfg.W})
+    : T('noteUnder',{D:fmt(need-have),W:cfg.W}))
+    + '<br><br>' + T('tipWave');
+
+  // tier rankings
+  const cont=document.getElementById('tiers'); cont.innerHTML='';
+  [1,2,3,4].forEach(t=>{
+    const rows=[];
+    UPS.filter(u=>u.t===t).forEach(u=>{
+      if(!unlockState(u,cfg.P,L).open) return;
+      const r=score(u,cfg);
+      if(r.maxed || !isFinite(r.sc) || r.sc<=0) return;
+      rows.push({u,r});
+    });
+    // Schaden-Kette als eigener Eintrag, konkurriert gleichberechtigt
+    const dc=dmgChain(t,cfg);
+    if(dc && isFinite(dc.sc) && dc.sc>0) rows.push({chain:dc});
+    rows.sort((a,b)=>(b.chain?b.chain.sc:b.r.sc)-(a.chain?a.chain.sc:a.r.sc));
+    const top=rows[0]?(rows[0].chain?rows[0].chain.sc:rows[0].r.sc):1;
+    const card=document.createElement('section'); card.className='tier';
+    card.innerHTML='<div class="tier-head"><h3>'+T('tier')+' '+t+'</h3><span class="cur">'+curName(t)+'</span></div>';
+
+    if(!rows.length){
+      card.insertAdjacentHTML('beforeend','<div class="empty">'+T('empty')+'</div>');
+    }
+    const html = r => {
+      const isTop = r===rows[0];
+      if(r.chain){
+        const c=r.chain;
+        const parts=c.parts.map(p=>p.n+'× '+upName(p.u)).join(' + ');
+        /* Zeile fuer den einzelnen ersten Schritt: der volle Sprung kann
+           lange dauern, das erste Level ist sofort bezahlbar.            */
+        const step = c.first && c.steps>1
+          ? '<div class="chainstep">'+T('chainStep',{
+              N:upName(c.first.u), C:fmt(c.first.cost), R:c.steps
+            })+' <button class="plus mini" type="button" data-step-buy="'+c.first.u.id+'" '
+            +'aria-label="'+upName(c.first.u)+'">+</button></div>'
+          : '';
+        return '<div class="row chainrow'+(isTop?' best':'')+'">'
+          +'<div><div class="nm">'+T('dmgJump')+'<span class="badge hit">'
+            +T('hitsBadge',{A:c.hitsFrom,B:c.hitsTo})+'</span></div>'
+          +'<div class="meta">'+T('lvlsTotal',{N:c.steps,C:fmt(c.cost)})+'</div>'
+          +'<span class="chainparts">'+parts+'</span>'+step+'</div>'
+          +'<div><div class="sc">'+scFmt(c.sc,top)+'</div>'+axes(c.dS,c.dR)+'</div>'
+          +'<div class="act"><button class="plus wide" type="button" data-chain="'+t+'" '
+            +'aria-label="'+T('dmgJump')+'">'+T('buyAll')+'</button></div>'
+          +'<div class="track"><i style="width:'+Math.max(2,c.sc/top*100)+'%"></i></div></div>';
+      }
+      const badge = (r.u.k==='cap'||r.u.k==='capcap') ? '<span class="badge cap">'+T('capBadge')+'</span>' : '';
+      const g = axes(r.r.dS,r.r.dR);
+      const flag = r.r.viaUnlock
+        ? '<span class="unlockflag">'+T('unlocks')+' '+r.r.viaUnlock.join(' → ')+'</span>' : '';
+      /* Cap-Upgrades: als Preis steht der EINZELKAUF, denn genau den kostet
+         der naechste Klick. Der Score rechnet weiter mit dem Buendel (Cap +
+         freigeschaltetes Level), das steht als Zusatzzeile darunter -
+         vorher stand die Buendelsumme als Preis fuer "Level 1".          */
+      const einzel = (r.r.bundle && r.r.capCost!=null) ? r.r.capCost : r.r.cost;
+      /* Bei Cap-Upgrades sagen, WOFUER die Zusatzkosten anfallen: das Cap
+         selbst wirkt nicht, erst der Folgekauf bringt den Gewinn. */
+      const fp = (r.r.followPath||[]).map(x=>upName(x)).join(' → ');
+      const bundleNote = (r.r.bundle && r.r.follow>0)
+        ? '<span class="bundlenote">'+T('capBundle',{
+            N:fp, F:fmt(r.r.follow), C:fmt(r.r.cost)
+          })+'</span>' : '';
+      return '<div class="row'+(isTop?' best':'')+'">'
+        +'<div><div class="nm">'+upName(r.u)+badge+'</div>'
+        +'<div class="meta">'+T('lvl')+' '+r.r.next+' · '+fmt(einzel)+' '+T('currency')+'</div>'
+        +bundleNote+flag+'</div>'
+        +'<div><div class="sc">'+scFmt(r.r.sc,top)+'</div><div class="gain">'+g+'</div></div>'
+        +'<div class="act">'
+          +'<button class="plus" type="button" data-add="'+r.u.id+'" '
+            +'aria-label="'+upName(r.u)+' '+T('buyLevel')+' '+r.r.next+'">+</button>'
+        +'</div>'
+        +'<div class="track"><i style="width:'+Math.max(2,r.r.sc/top*100)+'%"></i></div></div>';
+    };
+    rows.slice(0,3).forEach(r=>card.insertAdjacentHTML('beforeend',html(r)));
+    if(rows.length>3){
+      const d=document.createElement('details');
+      d.dataset.more=t;                                  // fuer Zustand ueber run()
+      /* Zwei Texte im summary: CSS zeigt je nach [open] den passenden.
+         So wird aus "2 weitere anzeigen" beim Aufklappen "weniger anzeigen". */
+      d.innerHTML='<summary>'
+        +'<span class="more-open">'+T('showMore',{N:rows.length-3})+'</span>'
+        +'<span class="more-close">'+T('showLess')+'</span>'
+        +'</summary>'+rows.slice(3).map(html).join('');
+      if(OPEN_MORE.has(String(t))) d.open=true;           // Zustand wiederherstellen
+      d.addEventListener('toggle',()=>{
+        if(d.open) OPEN_MORE.add(String(t)); else OPEN_MORE.delete(String(t));
+      });
+      card.appendChild(d);
+    }
+    // Vorschau: was schaltet als nächstes frei?
+    const nx=nextReveal(t,cfg.P);
+    if(nx) card.insertAdjacentHTML('beforeend',
+      '<div class="teaser">'+T('nextVisible')+' <b>'+upName(nx.u)+'</b> — '+nx.why+'</div>');
+    cont.appendChild(card);
+  });
+}
+/* Klicks auf + / − / alle in den Ranglisten */
+document.getElementById('tiers').addEventListener('click',ev=>{
+  const a=ev.target.closest('[data-add]'),
+        s=ev.target.closest('[data-sub]'),
+        sb=ev.target.closest('[data-step-buy]'),
+        ch=ev.target.closest('[data-chain]');
+  if(sb){ bump(sb.dataset.stepBuy,+1); return; }   // erster Schritt der Kette
+  if(ch){
+    const cfg=readCfg(), dc=dmgChain(+ch.dataset.chain,cfg);
+    if(dc){
+      dc.parts.forEach(p=>{ L[p.u.id]+=p.n; const i=document.getElementById('in_'+p.u.id); if(i) i.value=L[p.u.id]; });
+      run();
+    }
+    return;
+  }
+  if(a) bump(a.dataset.add,+1);
+  else if(s) bump(s.dataset.sub,-1);
+});
+/* ============ Stand speichern und laden ============
+   Ein Schnappschuss enthaelt alle Grundwerte, Gems und gekauften Level.
+   Speichern erzeugt eine JSON-Datei, laden liest sie zurueck.
+   Der Code im Aufklapper ist derselbe Inhalt zum Kopieren per Hand.     */
+/* Nur noch echte Eingaben werden gespeichert. Die Basiswerte sind Konstanten,
+   alte Staende bringen sie noch mit - sie werden beim Laden ignoriert.      */
+const CFGIDS=['P','W','gemHP','gemDMG','gemES','gemCur','tempo'];
+
+function snapshot(){
+  const c={};
+  CFGIDS.forEach(id=>{ const el=document.getElementById(id); if(el) c[id]=el.value; });
+  const lv={};
+  UPS.forEach(u=>{ if(L[u.id]) lv[u.id]=L[u.id]; });   // nur belegte Level, hält den Code kurz
+  return {app:'obelisk-event-rechner', v:1, gespeichert:new Date().toISOString().slice(0,16).replace('T',' '),
+          autoW:{on:AUTOW.on, gap:AUTOW.gap}, werte:c, level:lv};
+}
+function note(msg,warn){
+  const n=document.getElementById('saveNote');
+  n.textContent=msg||''; n.classList.toggle('warn',!!warn);
+  if(msg) setTimeout(()=>{ if(n.textContent===msg) n.textContent=''; },6000);
+}
+function refreshCode(){
+  const ta=document.getElementById('codeArea');
+  if(ta && document.activeElement!==ta) ta.value=JSON.stringify(snapshot());
+}
+function applySnapshot(snap){
+  if(!snap || typeof snap!=='object' || !snap.werte || !snap.level)
+    return note(T('badStand'),true);
+  CFGIDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el && snap.werte[id]!==undefined) el.value=snap.werte[id];
+  });
+  /* Auto-Ziel-Welle. Altstaende kennen das Feld nicht -> bleibt aus, damit
+     eine geladene Ziel-Welle nicht ueberschrieben wird.                  */
+  AUTOW.on  = !!(snap.autoW && snap.autoW.on);
+  AUTOW.gap = (snap.autoW && Number.isFinite(+snap.autoW.gap)) ? +snap.autoW.gap : AUTOW.gap;
+  if(typeof autoWUI==='function') autoWUI();
+  /* Aeltere Staende (vor v2.3.2) kannten "gemCur" nicht - dort steckte dieselbe
+     Information in "cur2" (100 = Gem gekauft). Daraus das Gem-Level ableiten.  */
+  if(snap.werte.gemCur===undefined)
+    document.getElementById('gemCur').value = (+snap.werte.cur2>=100)?1:0;
+  const w=document.getElementById('W'), w2=document.getElementById('W2');
+  if(w && w2) w2.value=w.value;                      // Ziel-Welle synchron halten
+  UPS.forEach(u=>{
+    L[u.id]=Math.max(0,parseInt(snap.level[u.id]||0,10));
+    const i=document.getElementById('in_'+u.id); if(i) i.value=L[u.id];
+  });
+  run();
+  note(T('loaded')+(snap.gespeichert?T('savedOn',{D:snap.gespeichert}):'')+'.');
+}
+
+document.getElementById('saveFile').addEventListener('click',()=>{
+  const txt=JSON.stringify(snapshot(),null,2);
+  const name='obelisk-stand-'+new Date().toISOString().slice(0,10)+'.json';
+  try{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));
+    a.download=name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
+    note(T('saved',{N:name}));
+  }catch(err){
+    document.querySelector('.codebox').open=true;
+    note(T('dlBlocked'),true);
+  }
+});
+
+document.getElementById('loadFile').addEventListener('click',()=>
+  document.getElementById('fileIn').click());
+document.getElementById('fileIn').addEventListener('change',ev=>{
+  const f=ev.target.files && ev.target.files[0];
+  if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ applySnapshot(JSON.parse(rd.result)); }
+                  catch(err){ note(T('badFile'),true); } };
+  rd.onerror=()=>note(T('badFile'),true);
+  rd.readAsText(f);
+  ev.target.value='';
+});
+
+document.getElementById('applyCode').addEventListener('click',()=>{
+  const raw=document.getElementById('codeArea').value.trim();
+  if(!raw) return note(T('needCode'),true);
+  try{ applySnapshot(JSON.parse(raw)); }
+  catch(err){ note(T('badCode'),true); }
+});
+
+/* Kopieren mit drei Stufen. Wichtig fuer den Unraid-Betrieb: unter
+   http://<ip> ist der Kontext nicht "secure", dort ist navigator.clipboard
+   gar nicht vorhanden (nur localhost und https gelten als sicher).
+   Darum: Async-API -> execCommand('copy') -> Anleitung zum Selbstkopieren. */
+async function copyText(ta){
+  if(navigator.clipboard && window.isSecureContext){
+    try{ await navigator.clipboard.writeText(ta.value); return true; }
+    catch(e){ /* verweigert, weiter mit Fallback */ }
+  }
+  /* Fallback: Auswahl + execCommand. Veraltet, aber der einzige Weg, der
+     ohne sicheren Kontext funktioniert - und genau der Fall auf dem Unraid. */
+  try{
+    const ro=ta.readOnly; ta.readOnly=false;
+    ta.focus(); ta.select(); ta.setSelectionRange(0,ta.value.length);
+    const ok=document.execCommand('copy');
+    ta.readOnly=ro;
+    if(ok) return true;
+  }catch(e){ /* auch das kann blockiert sein */ }
+  return false;
+}
+document.getElementById('copyCode').addEventListener('click',async()=>{
+  const ta=document.getElementById('codeArea');
+  document.querySelector('.codebox').open=true;
+  ta.value=JSON.stringify(snapshot());
+  if(await copyText(ta)) note(T('copied'));
+  else { ta.select(); note(T('copyBlocked'),true); }
+});
+
+/* Reset = echtes Prestige: Tier-Level fallen weg, verdiente Raenge zaehlen.
+   Grundlage ist die Ziel-Welle - das ist die Welle, die du tatsaechlich
+   laufen willst, waehrend die Max-Welle nur eine Modellschaetzung ist.   */
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  const cfg=readCfg();
+  /* Zielrang, nicht Summe: Welle 105 ergibt Rang 20 - wer schon P10 ist,
+     landet auf P20 und gewinnt 10 Raenge, nicht 20.                     */
+  const target=Math.min(60,rankForWave(cfg.W));
+  const gain=target-cfg.P;
+  UPS.forEach(u=>{ L[u.id]=0; const i=document.getElementById('in_'+u.id); if(i) i.value=0; });
+  if(gain>0){
+    document.getElementById('P').value=target;           // neuen Rang uebernehmen
+    note(T(gain===1?'prestigeGain':'prestigeGainN',{G:gain,P:target}));
+  } else {
+    /* Rang bleibt - Tier-Level sind trotzdem zurueckgesetzt. */
+    note(T(target>0?'prestigeGain0':'prestigeNone',{P:cfg.P}),true);
+  }
+  run();
+});
+['P','gemHP','gemDMG','gemES','gemCur','tempo'].forEach(id=>
+  document.getElementById(id).addEventListener('input',run));
+/* ============ Sprache anwenden ============
+   Statische Knoten tragen data-i18n. Die Upgrade-Liste und alle Ergebnisse
+   werden neu gebaut, damit auch die Upgrade-Namen umschalten.            */
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.getAttribute('data-i18n');
+    if(STR[LANG][k]===undefined) return;
+    /* Labels enthalten ein eigenes .hint-Kind mit eigenem Key. Deren inneres
+       HTML darf nicht ueberschrieben werden - dort nur den Text davor tauschen. */
+    const inner=el.querySelector('[data-i18n]');
+    if(inner){
+      const first=[...el.childNodes].find(n=>n.nodeType===3 && n.textContent.trim());
+      if(first) first.textContent=STR[LANG][k]+' ';
+      else el.insertBefore(document.createTextNode(STR[LANG][k]+' '),inner);
+    } else {
+      el.innerHTML=STR[LANG][k];
+    }
+  });
+  document.getElementById('langBtn').textContent=T('langBtn');
+  document.title = (LANG==='en')
+    ? 'Event Upgrade Assay — Idle Obelisk Miner'
+    : 'Event-Upgrade-Assay — Idle Obelisk Miner';
+  buildChips(); buildInputs(); autoWUI(); run();
+}
+document.getElementById('langBtn').addEventListener('click',()=>{
+  LANG = (LANG==='de') ? 'en' : 'de';
+  try{ localStorage.setItem('obelisk-lang',LANG); }catch(err){}
+  applyLang();
+});
+buildChips(); buildInputs(); applyLang();
+
+/* ---------- Auto-Ziel-Welle ---------- */
+function autoWUI(){
+  document.getElementById('autoWVal').textContent='+'+AUTOW.gap;
+  document.getElementById('autoW').checked=AUTOW.on;
+  document.getElementById('autoWOff').classList.toggle('off',!AUTOW.on);
+  /* Manuelle Wellen-Eingabe sperren, solange die Automatik laeuft - sonst
+     tippt man einen Wert ein, den der naechste run() ueberschreibt.
+     Betrifft das Feld W2, die -5/-1/+1/+5-Knoepfe und die Guide-Chips.
+     #W ist nur noch ein verstecktes Spiegelfeld und braucht kein disabled. */
+  const w2=document.getElementById('W2');
+  if(w2) w2.disabled=AUTOW.on;
+  document.querySelectorAll('[data-dw],[data-w]').forEach(b=>b.disabled=AUTOW.on);
+}
+document.getElementById('autoW').addEventListener('change',ev=>{
+  AUTOW.on=ev.target.checked;
+  autoWUI(); run();
+});
+document.addEventListener('click',ev=>{
+  const a=ev.target.closest('[data-stepa]');
+  if(!a) return;
+  AUTOW.gap=Math.min(20,Math.max(0,AUTOW.gap+ +a.dataset.stepa));
+  autoWUI();
+  if(AUTOW.on) run();
+});
+autoWUI();
+
+
+/* ============================================================
+   Server-Sync (optional)
+   ------------------------------------------------------------
+   Wird die Seite von einem Sync-Server geladen (http/https), dann
+   holt sie beim Start den Stand von GET /state und schreibt jede
+   Aenderung per PUT /state zurueck. Bei file:// bleibt alles wie
+   vorher - reine Offline-Datei, kein Netzverkehr.
+   ============================================================ */
+const SYNC = {
+  on: location.protocol === 'http:' || location.protocol === 'https:',
+  url: 'state',
+  timer: null,
+  lastSent: null,
+  loading: false,       // beim Laden nicht sofort zurueckschreiben
+  probing: true         // erster Versuch: klaert, ob hier ein Server steht
+};
+
+function syncUI(state, extra){
+  const bar=document.getElementById('syncBar');
+  if(!bar || !SYNC.on) return;
+  /* Waehrend der Erstpruefung verborgen halten: steht kein Server dahinter,
+     soll die Leiste nie zu sehen sein (kein Aufblitzen).               */
+  if(SYNC.probing && state==='busy') return;
+  bar.hidden=false;
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncText');
+  dot.className='syncdot '+state;                    // ok | busy | err
+  txt.textContent = extra || T({ok:'syncOk',busy:'syncBusy',err:'syncErr'}[state] || 'syncIdle');
+}
+
+async function syncPull(quiet){
+  if(!SYNC.on) return;
+  syncUI('busy');
+  try{
+    const r=await fetch(SYNC.url, {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const snap=await r.json();
+    if(snap && snap.werte && snap.level){
+      SYNC.loading=true;
+      applySnapshot(snap);
+      SYNC.loading=false;
+      SYNC.lastSent=JSON.stringify(snapshot());      // gleich, also nichts senden
+      syncUI('ok', T('syncPulled',{Z:snap.gespeichert||'-'}));
+    }else{
+      /* Server hat noch keinen Stand - dann ist der lokale der erste. */
+      syncUI('ok', T('syncEmpty'));
+      if(!quiet) syncPush(true);
+    }
+  }catch(err){
+    SYNC.loading=false;
+    /* Beim ERSTEN Versuch entscheidet sich, ob hier ueberhaupt ein
+       Sync-Server steht. Auf oeffentlichem Hosting (GitHub Pages) gibt es
+       keinen - dann Sync stumm abschalten statt einen roten Fehlerpunkt
+       zu zeigen. Der lokale Geraetespeicher uebernimmt allein.
+       Nur ein spaeterer Ausfall wird als Fehler gemeldet.              */
+    if(SYNC.probing){
+      SYNC.on=false;
+      const bar=document.getElementById('syncBar');
+      if(bar) bar.hidden=true;
+      return;
+    }
+    syncUI('err', T('syncErrDetail',{E:String(err.message||err)}));
+  }finally{
+    SYNC.probing=false;
+  }
+}
+
+async function syncPush(force){
+  if(!SYNC.on || SYNC.loading) return;
+  const body=JSON.stringify(snapshot());
+  if(!force && body===SYNC.lastSent) return;          // nichts Neues
+  syncUI('busy');
+  try{
+    const r=await fetch(SYNC.url, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    SYNC.lastSent=body;
+    syncUI('ok', T('syncSaved',{Z:new Date().toLocaleTimeString()}));
+  }catch(err){
+    syncUI('err', T('syncErrDetail',{E:String(err.message||err)}));
+  }
+}
+
+/* Gebuendelt speichern: viele Klicks am Stepper ergeben EIN PUT. */
+function syncQueue(){
+  if(!SYNC.on || SYNC.loading) return;
+  clearTimeout(SYNC.timer);
+  SYNC.timer=setTimeout(syncPush, 1200);
+}
+
+if(SYNC.on){
+  document.getElementById('syncNow').addEventListener('click',()=>syncPull(false));
+  /* Jede Aenderung im Panel oder an den Leveln anstossen. */
+  document.addEventListener('input', syncQueue);
+  document.addEventListener('click', ev=>{
+    if(ev.target.closest('[data-step],[data-stepg],[data-stepw],[data-stepa],[data-buy],[data-add],[data-sub],[data-chain],[data-step-buy],[data-w],#resetBtn,#applyCode,#langBtn')) syncQueue();
+  });
+  /* Tab-Wechsel: beim Verlassen offene Aenderung rausschreiben, beim
+     Zurueckkommen den Stand holen (anderes Geraet hat evtl. gespeichert).
+     EIN Listener, sonst wuerde Push/Pull sich ins Gehege kommen.      */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){
+      clearTimeout(SYNC.timer); syncPush();
+    } else {
+      syncPull(true);
+    }
+  });
+  syncPull(false);
+}
+
+/* ============ Lokales Speichern (Geraetespeicher) ============
+   Grundstufe unter dem Server-Sync: haelt den Stand im Browser des
+   Geraets. Damit verliert niemand seinen Fortschritt, auch ohne Server -
+   der Fall fuer jeden, der die Seite oeffentlich aufruft.
+   Reihenfolge beim Start: Server-Stand (falls erreichbar) schlaegt den
+   lokalen, weil der Server geraeteuebergreifend die frischere Quelle ist. */
+const LKEY='obelisk-event-stand';
+let lsTimer=null;
+
+function lsSave(){
+  try{ localStorage.setItem(LKEY, JSON.stringify(snapshot())); }
+  catch(err){ /* Speicher voll oder gesperrt (Privatmodus) - kein Drama */ }
+}
+/* Gebuendelt schreiben: viele Klicks in Folge ergeben einen Schreibvorgang */
+function lsQueue(){
+  clearTimeout(lsTimer);
+  lsTimer=setTimeout(lsSave,600);
+}
+function lsLoad(){
+  try{
+    const raw=localStorage.getItem(LKEY);
+    if(!raw) return false;
+    const snap=JSON.parse(raw);
+    if(!snap || !snap.werte || !snap.level) return false;
+    applySnapshot(snap);
+    return true;
+  }catch(err){ return false; }
+}
+
+/* Beim Laden: lokalen Stand holen, sofern der Server nicht schon einen
+   geliefert hat. SYNC.on heisst nur "koennte einen Server haben" - ob
+   wirklich einer antwortet, steht erst nach syncPull() fest. Darum wird
+   hier verzoegert geprueft, ob inzwischen Level gesetzt wurden. */
+(function initLocal(){
+  const leer=()=>UPS.every(u=>!L[u.id]);
+  if(!SYNC.on){ lsLoad(); }
+  else setTimeout(()=>{ if(leer()) lsLoad(); }, 900);
+})();
+
+/* Jede Aenderung lokal sichern - unabhaengig davon, ob ein Server da ist */
+document.addEventListener('input', lsQueue);
+document.addEventListener('click', ev=>{
+  if(ev.target.closest('[data-step],[data-stepg],[data-stepa],[data-buy],[data-add],[data-sub],[data-chain],[data-step-buy],[data-dw],[data-w],#resetBtn,#applyCode,#autoW')) lsQueue();
+});
+/* Beim Verlassen offene Aenderung sofort wegschreiben */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){ clearTimeout(lsTimer); lsSave(); }
+});
+
+/* ============ PWA: Service Worker ============
+   Nur registrieren, wenn der Kontext sicher ist (https oder localhost) -
+   ueber http://<ip> ist die API gar nicht vorhanden. */
+if('serviceWorker' in navigator && window.isSecureContext){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+</script>
+</body>
+</html>
